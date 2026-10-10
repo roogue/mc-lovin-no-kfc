@@ -10,16 +10,15 @@ Run:
 """
 
 import json
-import os
 import time
 
 import requests
 import serial
 
-SERIAL_PORT = os.getenv("SERIAL_PORT", "COM3")
+SERIAL_PORT = "COM3"
 BAUD_RATE = 115200
-API = os.getenv("PLANT_API", "https://api.putrinaqibah.com").rstrip("/")
-DEVICE_KEY = os.getenv("DEVICE_KEY", "")
+API = "https://api.putrinaqibah.com"
+DEVICE_KEY = ""
 HEADERS = {"X-API-Key": DEVICE_KEY} if DEVICE_KEY else {}
 POLL_EVERY = 1.0          # seconds between GET /status calls
 FIELDS = ("temperature", "humidity", "pressure")
