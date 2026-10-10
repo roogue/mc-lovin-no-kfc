@@ -2,7 +2,18 @@
 
 ## Frontend
 
-Open `Frontend/index.html` in a browser (an internet connection is needed for the Three.js plant scene).
+Preview the site with [Vite](https://vite.dev) (needs Node.js):
+
+```bash
+cd Frontend
+npm install      # first time only
+npm run dev      # opens http://localhost:5173 and reloads when you save
+```
+
+- `npm run build` builds the site into `Frontend/dist/`
+- `npm run preview` serves that build at http://localhost:4173
+
+You can still open `Frontend/index.html` directly in a browser. An internet connection is needed for the Three.js plant scene.
 
 ### Weather API key
 
