@@ -5,7 +5,8 @@
 //   POST /api/disease                      ← { status, issue, confidence, health_percentage, description, recommendations } → { ok, id }
 //   POST /api/disease/<id>/image           ← multipart form, field "image" (JPEG / PNG / WebP, max 10 MB) → { ok, id, image_url, bytes }
 //   image_url is a path ("/api/disease/images/<file>") on the API, or null when the scan has no photo.
-//   DELETE /api/readings                   → { ok, deleted }    clears the sensor table (simulation page, ML test data)
+//   DELETE /api/readings?confirm=delete-all-readings → { ok, deleted, backup }  clears the sensor table (simulation page,
+//                                          ML test data); without the confirm parameter the API answers 400 and deletes nothing
 //   POST /api/readings/bulk                ← { readings: [{ recorded_at, temperature, humidity, pressure, precipitation }] } → { ok, inserted }
 // Times from the API are UTC ("YYYY-MM-DD HH:MM:SS", or Unix seconds for history points); pages show local time.
 // Reading is only used in live mode (sample mode keeps reading the sample files in public/data/). Saving a photo
@@ -109,7 +110,7 @@ window.PlantHistory = (function () {
 				},
 			}),
 		// ML test data (simulation page): empty the sensor table / add readings with their own timestamps
-		clearReadings: () => get("/api/readings", {}, { method: "DELETE" }),
+		clearReadings: () => get("/api/readings", { confirm: "delete-all-readings" }, { method: "DELETE" }),
 		addReadings: (readings) => get("/api/readings/bulk", {}, { method: "POST", body: { readings } }),
 		// Uploads the photo for a saved scan
 		uploadScanImage: (id, blob, filename = "scan.jpg") => {

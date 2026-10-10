@@ -1,6 +1,7 @@
 // Simulation page: ML test data. Writes known 6-hour histories into the REAL database so the prediction model
 // (Prediction-Training/) has something predictable to read.
-//   Fresh     DELETE /api/readings                         → { ok, deleted }   clears the sensor table
+//   Fresh     DELETE /api/readings?confirm=delete-all-readings → { ok, deleted, backup }  clears the sensor table
+//             (the server keeps a backup file of what it deleted)
 //   Scenario  POST /api/readings/bulk  { readings: [...] }  → { ok, inserted }  readings with past timestamps
 // The model reads temperature, humidity, pressure and precipitation from the last 6 hours, averaged into 10-minute
 // steps, and compares each value with 10 minutes to 6 hours earlier. So each scenario covers a little more than
@@ -230,7 +231,9 @@
 		try {
 			const res = await PlantHistory.clearReadings();
 			const n = res && Number.isFinite(Number(res.deleted)) ? Number(res.deleted) : null;
-			status(`Sensor table cleared${n != null ? ` (${n.toLocaleString("en-GB")} readings deleted)` : ""}. Now write a scenario.`, "done");
+			const deleted = n == null ? "Sensor table cleared" : `Sensor table cleared: ${n.toLocaleString("en-GB")} reading${n === 1 ? "" : "s"} deleted`;
+			const backup = res && res.backup ? ` Backup saved on the server as ${res.backup}.` : "";
+			status(`${deleted}.${backup} Now write a scenario.`, "done");
 		} catch (err) {
 			console.warn("Could not clear the readings:", err);
 			status(`Not cleared: ${explain(err)}`, "error");
