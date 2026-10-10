@@ -133,6 +133,7 @@
       ui.statusCard.classList.add('pop');
     }
     if (park) park.setState(name, firstRun);
+    document.dispatchEvent(new CustomEvent('plant:state', { detail: { state: name, health: s.health } }));
   }
 
   function updateTimeUI() {
@@ -185,15 +186,96 @@
     const T = window.THREE;
     const V3 = T.Vector3;
 
-    const renderer = new T.WebGLRenderer({ antialias: true, powerPreference: 'low-power' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    // Colours are authored in sRGB, lighting runs in linear space, and the frame is graded with ACES filmic tone mapping
+    T.ColorManagement.legacyMode = false;
+    // Phones and low-core machines get less grass, smaller shadow maps and a lower resolution cap
+    const lowPower = window.matchMedia('(pointer: coarse)').matches || (navigator.hardwareConcurrency || 8) <= 4;
+    const renderer = new T.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    if (!renderer.capabilities.isWebGL2) {
+      renderer.dispose();
+      throw new Error('WebGL2 is needed for the plant scene'); // the card falls back to its flat CSS park
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowPower ? 1.5 : 2));
+    renderer.outputEncoding = T.sRGBEncoding;
+    renderer.toneMapping = T.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.6;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = T.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
     const scene = new T.Scene();
-    scene.fog = new T.Fog(0xffffff, 14, 42);
+    scene.fog = new T.FogExp2(0xffffff, 0.016);
     const camera = new T.PerspectiveCamera(35, 1, 0.1, 200);
 
-    const mat = (color, opts) => new T.MeshStandardMaterial(Object.assign({ color, roughness: 0.9, metalness: 0, flatShading: true }, opts));
+    const mat = (color, opts) => new T.MeshStandardMaterial(Object.assign({ color, roughness: 0.9, metalness: 0 }, opts));
+
+    /* --- Procedural surface shaders (patched into the standard PBR material) --- */
+    const NOISE_GLSL = `
+      float pc_hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+      float pc_noise(vec3 x) {
+        vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mix(pc_hash(i), pc_hash(i + vec3(1.0, 0.0, 0.0)), f.x), mix(pc_hash(i + vec3(0.0, 1.0, 0.0)), pc_hash(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+                   mix(mix(pc_hash(i + vec3(0.0, 0.0, 1.0)), pc_hash(i + vec3(1.0, 0.0, 1.0)), f.x), mix(pc_hash(i + vec3(0.0, 1.0, 1.0)), pc_hash(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z);
+      }
+      float pc_fbm(vec3 p) { float v = 0.0; float a = 0.5; for (int i = 0; i < 4; i++) { v += a * pc_noise(p); p = p * 2.03 + 17.1; a *= 0.5; } return v; }
+      // Bump-map a surface from a procedural height (screen-space derivatives)
+      vec3 pc_bump(vec3 n, float h, float strength) {
+        vec3 pos = -vViewPosition;
+        vec3 dpdx = dFdx(pos); vec3 dpdy = dFdy(pos);
+        vec3 r1 = cross(dpdy, n); vec3 r2 = cross(n, dpdx);
+        float det = dot(dpdx, r1);
+        vec3 grad = sign(det) * (dFdx(h) * r1 + dFdy(h) * r2);
+        return normalize(abs(det) * n - strength * grad);
+      }`;
+
+    const glslType = (v) => (typeof v === 'number' ? 'float' : v.isColor || v.isVector3 ? 'vec3' : v.isVector2 ? 'vec2' : 'float');
+
+    // Inject GLSL into MeshStandardMaterial / MeshPhysicalMaterial at fixed points, keeping all of three's lighting,
+    // shadows, fog and image-based lighting. `key` keeps each variant's compiled program separate.
+    function shade(material, key, { uniforms = {}, vertexPars = '', vertex = '', project = '', fragmentPars = '', color = '', roughness = '', normal = '', output = '' }) {
+      material.userData.uniforms = uniforms;
+      const decl = 'varying vec3 vObjP;\nvarying vec3 vWorldP;\nvarying vec2 vLocalUv;\n'
+        + Object.entries(uniforms).map(([k, u]) => `uniform ${glslType(u.value)} ${k};`).join('\n');
+      material.onBeforeCompile = (shader) => {
+        Object.assign(shader.uniforms, uniforms);
+        shader.vertexShader = shader.vertexShader
+          .replace('#include <common>', `#include <common>\n${decl}\n${vertexPars}`)
+          .replace('#include <worldpos_vertex>', `#include <worldpos_vertex>
+            vObjP = position;
+            vLocalUv = uv;
+            {
+              vec4 pcWorld = vec4(transformed, 1.0);
+              #ifdef USE_INSTANCING
+                pcWorld = instanceMatrix * pcWorld;
+              #endif
+              vWorldP = (modelMatrix * pcWorld).xyz;
+            }
+            ${vertex}`);
+        if (project) shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', project);
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <common>', `#include <common>\n${decl}\n${NOISE_GLSL}\n${fragmentPars}`)
+          .replace('#include <color_fragment>', `#include <color_fragment>\n${color}`)
+          .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\n${roughness}`)
+          .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\n${normal}`)
+          .replace('#include <output_fragment>', `${output}\n#include <output_fragment>`);
+      };
+      material.customProgramCacheKey = () => `plantcheck-${key}`;
+      return material;
+    }
+
+    // Value noise in JS, used to sculpt lumpy tree canopies
+    const hash3 = (x, y, z) => { const v = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return v - Math.floor(v); };
+    function noise3(x, y, z) {
+      const xi = Math.floor(x); const yi = Math.floor(y); const zi = Math.floor(z);
+      const xf = x - xi; const yf = y - yi; const zf = z - zi;
+      const u = xf * xf * (3 - 2 * xf); const v = yf * yf * (3 - 2 * yf); const w = zf * zf * (3 - 2 * zf);
+      const c = (dx, dy, dz) => hash3(xi + dx, yi + dy, zi + dz);
+      return lerp(
+        lerp(lerp(c(0, 0, 0), c(1, 0, 0), u), lerp(c(0, 1, 0), c(1, 1, 0), u), v),
+        lerp(lerp(c(0, 0, 1), c(1, 0, 1), u), lerp(c(0, 1, 1), c(1, 1, 1), u), v),
+        w
+      );
+    }
 
     function glowTexture(rgb) {
       const c = document.createElement('canvas');
@@ -205,16 +287,19 @@
       grd.addColorStop(1, `rgba(${rgb},0)`);
       g.fillStyle = grd;
       g.fillRect(0, 0, 128, 128);
-      return new T.CanvasTexture(c);
+      const tex = new T.CanvasTexture(c);
+      tex.encoding = T.sRGBEncoding;
+      return tex;
     }
 
     const glow = (rgb, size) => {
-      const s = new T.Sprite(new T.SpriteMaterial({ map: glowTexture(rgb), blending: T.AdditiveBlending, transparent: true, depthWrite: false, fog: false }));
+      const s = new T.Sprite(new T.SpriteMaterial({ map: glowTexture(rgb), blending: T.AdditiveBlending, transparent: true, depthWrite: false, fog: false, toneMapped: false }));
       s.scale.set(size, size, 1);
       return s;
     };
 
-    const shadowMat = new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.16, depthWrite: false });
+    // soft contact shadows under objects (real-time shadows do the rest)
+    const shadowMat = new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.12, depthWrite: false });
     const shadowGeo = new T.CircleGeometry(1, 24);
     const shadow = (r) => {
       const m = new T.Mesh(shadowGeo, shadowMat);
@@ -225,46 +310,187 @@
     };
 
     /* --- Lights --- */
-    const hemi = new T.HemisphereLight(0xbfe6ff, 0x3d5a2f, 0.6);
-    const sunLight = new T.DirectionalLight(0xffffff, 0.9);
+    const hemi = new T.HemisphereLight(0xbfdcff, 0x3d5a2f, 0.12);
+    const sunLight = new T.DirectionalLight(0xffffff, 3); // key light: the sun by day, the moon by night
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.setScalar(lowPower ? 1024 : 2048);
+    Object.assign(sunLight.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 1, far: 60 });
+    sunLight.shadow.camera.updateProjectionMatrix();
+    sunLight.shadow.bias = -0.0004;
+    sunLight.shadow.normalBias = 0.03;
+    sunLight.target.position.set(0, 0.5, -1.5);
+    const fillLight = new T.DirectionalLight(0xdfe8ff, 0.3); // soft fill from the camera side
+    fillLight.position.set(0.5, 3, 10);
     const lampLight = new T.PointLight(0xffc56b, 0, 7, 1.5);
     lampLight.position.set(-1.8, 1.9, -2.6);
-    scene.add(hemi, sunLight, lampLight);
+    scene.add(hemi, sunLight, sunLight.target, fillLight, lampLight);
 
-    /* --- Sky dome --- */
-    const skyUniforms = {
-      topColor: { value: new T.Color() },
-      bottomColor: { value: new T.Color() },
+    /* --- Physically based sky (Preetham atmospheric scattering) --- */
+    const U = {
+      sunPosition: { value: new V3(0, 1, 0) },
+      up: { value: new V3(0, 1, 0) },
+      turbidity: { value: 5 },
+      rayleigh: { value: 2.2 },
+      mieCoefficient: { value: 0.005 },
+      mieDirectionalG: { value: 0.8 },
+      nightTop: { value: new T.Color(0x0b1430) },
+      nightBottom: { value: new T.Color(0x22305c) },
+      nightGain: { value: 3 },
+      skyGain: { value: 0.6 }, // visible sky only; the lighting bake uses the full-strength sky
+      nightMix: { value: 0 },
+      overcast: { value: 0 },
+      flash: { value: 0 },
     };
-    const sky = new T.Mesh(
-      new T.SphereGeometry(80, 32, 16),
-      new T.ShaderMaterial({
-        uniforms: skyUniforms,
-        side: T.BackSide,
-        depthWrite: false,
-        vertexShader: `
-          varying vec3 vWorld;
-          void main() {
-            vWorld = (modelMatrix * vec4(position, 1.0)).xyz;
-            gl_Position = projectionMatrix * viewMatrix * vec4(vWorld, 1.0);
-          }`,
-        fragmentShader: `
-          uniform vec3 topColor;
-          uniform vec3 bottomColor;
-          varying vec3 vWorld;
-          void main() {
-            float h = clamp(normalize(vWorld).y * 3.5, 0.0, 1.0);
-            gl_FragColor = vec4(mix(bottomColor, topColor, pow(h, 0.8)), 1.0);
-          }`,
-      })
-    );
+    const skyMat = new T.ShaderMaterial({
+      uniforms: U,
+      side: T.BackSide,
+      depthWrite: false,
+      vertexShader: `
+        uniform vec3 sunPosition; uniform float rayleigh; uniform float turbidity; uniform float mieCoefficient; uniform vec3 up;
+        varying vec3 vWorldPosition; varying vec3 vSunDirection; varying float vSunfade; varying vec3 vBetaR; varying vec3 vBetaM; varying float vSunE;
+        const float e = 2.71828182845904523536028747135266249775724709369995957;
+        const vec3 totalRayleigh = vec3(5.804542996261093E-6, 1.3562911419845635E-5, 3.0265902468824876E-5);
+        const vec3 MieConst = vec3(1.8399918514433978E14, 2.7798023919660528E14, 4.0790479543861094E14);
+        const float cutoffAngle = 1.6110731556870734;
+        const float steepness = 1.5;
+        const float EE = 1000.0;
+        float sunIntensity(float zenithAngleCos) {
+          zenithAngleCos = clamp(zenithAngleCos, -1.0, 1.0);
+          return EE * max(0.0, 1.0 - pow(e, -((cutoffAngle - acos(zenithAngleCos)) / steepness)));
+        }
+        vec3 totalMie(float T) { float c = (0.2 * T) * 10E-18; return 0.434 * c * MieConst; }
+        void main() {
+          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+          vWorldPosition = worldPosition.xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          gl_Position.z = gl_Position.w; // always at the far plane
+          vSunDirection = normalize(sunPosition);
+          vSunE = sunIntensity(dot(vSunDirection, up));
+          vSunfade = 1.0 - clamp(1.0 - exp((sunPosition.y / 450000.0)), 0.0, 1.0);
+          float rayleighCoefficient = rayleigh - (1.0 * (1.0 - vSunfade));
+          vBetaR = totalRayleigh * rayleighCoefficient;
+          vBetaM = totalMie(turbidity) * mieCoefficient;
+        }`,
+      fragmentShader: `
+        varying vec3 vWorldPosition; varying vec3 vSunDirection; varying float vSunfade; varying vec3 vBetaR; varying vec3 vBetaM; varying float vSunE;
+        uniform float mieDirectionalG; uniform vec3 up;
+        uniform vec3 nightTop; uniform vec3 nightBottom; uniform float nightGain; uniform float nightMix; uniform float overcast; uniform float flash; uniform float skyGain;
+        const float pi = 3.141592653589793238462643383279502884197169;
+        const float rayleighZenithLength = 8.4E3;
+        const float mieZenithLength = 1.25E3;
+        const float sunAngularDiameterCos = 0.999956676946448443553574619906976478926848692873900859324;
+        const float THREE_OVER_SIXTEENPI = 0.05968310365946075;
+        const float ONE_OVER_FOURPI = 0.07957747154594767;
+        float rayleighPhase(float cosTheta) { return THREE_OVER_SIXTEENPI * (1.0 + pow(cosTheta, 2.0)); }
+        float hgPhase(float cosTheta, float g) {
+          float g2 = pow(g, 2.0);
+          float inverse = 1.0 / pow(1.0 - 2.0 * g * cosTheta + g2, 1.5);
+          return ONE_OVER_FOURPI * ((1.0 - g2) * inverse);
+        }
+        void main() {
+          vec3 direction = normalize(vWorldPosition - cameraPosition);
+          float zenithAngle = acos(max(0.0, dot(up, direction)));
+          float inverse = 1.0 / (cos(zenithAngle) + 0.15 * pow(93.885 - ((zenithAngle * 180.0) / pi), -1.253));
+          float sR = rayleighZenithLength * inverse;
+          float sM = mieZenithLength * inverse;
+          vec3 Fex = exp(-(vBetaR * sR + vBetaM * sM));
+          float cosTheta = dot(direction, vSunDirection);
+          float rPhase = rayleighPhase(cosTheta * 0.5 + 0.5);
+          vec3 betaRTheta = vBetaR * rPhase;
+          float mPhase = hgPhase(cosTheta, mieDirectionalG);
+          vec3 betaMTheta = vBetaM * mPhase;
+          vec3 Lin = pow(vSunE * ((betaRTheta + betaMTheta) / (vBetaR + vBetaM)) * (1.0 - Fex), vec3(1.5));
+          Lin *= mix(vec3(1.0), pow(vSunE * ((betaRTheta + betaMTheta) / (vBetaR + vBetaM)) * Fex, vec3(1.0 / 2.0)), clamp(pow(1.0 - dot(up, vSunDirection), 5.0), 0.0, 1.0));
+          vec3 L0 = vec3(0.1) * Fex;
+          float sundisk = smoothstep(sunAngularDiameterCos, sunAngularDiameterCos + 0.00002, cosTheta);
+          L0 += (vSunE * 19000.0 * Fex) * sundisk;
+          vec3 texColor = (Lin + L0) * 0.04 + vec3(0.0, 0.0003, 0.00075);
+          vec3 retColor = pow(texColor, vec3(1.0 / (1.2 + (1.2 * vSunfade)))) * skyGain;
+          // richer blues near the horizon (the card only shows the low sky), then night sky, cloud cover and lightning
+          float sLum = dot(retColor, vec3(0.2126, 0.7152, 0.0722));
+          retColor = max(mix(vec3(sLum), retColor, 1.45), 0.0);
+          float hgt = clamp(direction.y * 3.0, 0.0, 1.0);
+          retColor += mix(nightBottom, nightTop, pow(hgt, 0.7)) * nightGain * nightMix;
+          float lum = dot(retColor, vec3(0.2126, 0.7152, 0.0722));
+          retColor = mix(retColor, vec3(lum) * vec3(0.74, 0.76, 0.8), overcast * 0.85);
+          retColor += vec3(0.55, 0.6, 0.75) * flash;
+          gl_FragColor = vec4(retColor, 1.0);
+          #include <tonemapping_fragment>
+          #include <encodings_fragment>
+        }`,
+    });
+    const skyGeo = new T.SphereGeometry(80, 48, 24);
+    const sky = new T.Mesh(skyGeo, skyMat);
     sky.renderOrder = -1;
     scene.add(sky);
 
+    // The same scattering maths on the CPU, so fog can match the sky at the horizon exactly
+    const TOTAL_RAYLEIGH = [5.804542996261093e-6, 1.3562911419845635e-5, 3.0265902468824876e-5];
+    const MIE_CONST = [1.8399918514433978e14, 2.7798023919660528e14, 4.0790479543861094e14];
+    const nightTopL = U.nightTop.value;
+    const nightBottomL = U.nightBottom.value;
+    function skyRadiance(dir) {
+      const sd = U.sunPosition.value;
+      const sunCos = Math.min(1, Math.max(-1, sd.y));
+      const sunE = 1000 * Math.max(0, 1 - Math.exp(-((1.6110731556870734 - Math.acos(sunCos)) / 1.5)));
+      const sunfade = 1 - clamp01(1 - Math.exp(sd.y / 450000));
+      const rayleighCoef = U.rayleigh.value - (1 - sunfade);
+      const c = 0.2 * U.turbidity.value * 10e-18;
+      const zenith = Math.acos(Math.max(0, dir.y));
+      const inv = 1 / (Math.cos(zenith) + 0.15 * Math.pow(93.885 - (zenith * 180) / Math.PI, -1.253));
+      const cosTheta = dir.dot(sd);
+      const rPhase = 0.05968310365946075 * (1 + Math.pow(cosTheta * 0.5 + 0.5, 2));
+      const g = U.mieDirectionalG.value;
+      const mPhase = 0.07957747154594767 * ((1 - g * g) / Math.pow(1 - 2 * g * cosTheta + g * g, 1.5));
+      const fadeMix = clamp01(Math.pow(Math.max(0, 1 - sd.y), 5));
+      const hgt = Math.pow(clamp01(dir.y * 3), 0.7);
+      const out = [0, 1, 2].map((i) => {
+        const bR = TOTAL_RAYLEIGH[i] * rayleighCoef;
+        const bM = 0.434 * c * MIE_CONST[i] * U.mieCoefficient.value;
+        const fex = Math.exp(-(bR * 8.4e3 * inv + bM * 1.25e3 * inv));
+        const ratio = (bR * rPhase + bM * mPhase) / (bR + bM);
+        let lin = Math.pow(sunE * ratio * (1 - fex), 1.5);
+        lin *= lerp(1, Math.pow(sunE * ratio * fex, 0.5), fadeMix);
+        const tex = (lin + 0.1 * fex) * 0.04 + [0, 0.0003, 0.00075][i];
+        return Math.pow(tex, 1 / (1.2 + 1.2 * sunfade)) * U.skyGain.value;
+      });
+      const sLum = out[0] * 0.2126 + out[1] * 0.7152 + out[2] * 0.0722;
+      ['r', 'g', 'b'].forEach((c, i) => {
+        out[i] = Math.max(0, lerp(sLum, out[i], 1.45)) + lerp(nightBottomL[c], nightTopL[c], hgt) * U.nightGain.value * U.nightMix.value;
+      });
+      const lum = out[0] * 0.2126 + out[1] * 0.7152 + out[2] * 0.0722;
+      const oc = U.overcast.value * 0.85;
+      return out.map((v, i) => lerp(v, lum * [0.74, 0.76, 0.8][i], oc) + [0.55, 0.6, 0.75][i] * U.flash.value);
+    }
+
+    // Image-based lighting: the sky (plus a grassy ground bounce) is pre-filtered into an environment map
+    // that lights and reflects in every PBR material
+    const pmrem = new T.PMREMGenerator(renderer);
+    const envScene = new T.Scene();
+    envScene.add(new T.Mesh(skyGeo, skyMat));
+    const envGroundColor = new T.Color(0x4f7d3a);
+    const envGround = new T.Mesh(new T.CircleGeometry(100, 32), new T.MeshBasicMaterial({ color: 0x4f7d3a }));
+    envGround.rotation.x = -Math.PI / 2;
+    envGround.position.y = -2;
+    envScene.add(envGround);
+    let envRT = null;
+    function updateEnvironment() {
+      const gain = U.skyGain.value;
+      U.skyGain.value = 1;
+      const rt = pmrem.fromScene(envScene, 0.02, 0.1, 200);
+      U.skyGain.value = gain;
+      if (envRT) envRT.dispose();
+      envRT = rt;
+      scene.environment = rt.texture;
+    }
+
     /* --- Sun, moon, stars --- */
-    const sun = new T.Mesh(new T.SphereGeometry(1.3, 24, 16), new T.MeshBasicMaterial({ color: 0xffe28a, fog: false, transparent: true }));
-    sun.add(glow('255,214,120', 10));
-    const moon = new T.Mesh(new T.SphereGeometry(1.0, 24, 16), new T.MeshBasicMaterial({ color: 0xf4f1de, fog: false, transparent: true }));
+    // Discs sit along the real sun / moon directions; HDR colours so they burn out to white through tone mapping
+    const sun = new T.Mesh(new T.SphereGeometry(1.1, 24, 16), new T.MeshBasicMaterial({ fog: false, transparent: true }));
+    sun.material.color.setRGB(6, 4.8, 3.2);
+    sun.add(glow('255,214,150', 12));
+    const moon = new T.Mesh(new T.SphereGeometry(0.9, 24, 16), new T.MeshBasicMaterial({ fog: false, transparent: true }));
+    moon.material.color.setRGB(1.6, 1.55, 1.4);
     moon.add(glow('190,210,255', 7));
     scene.add(sun, moon);
 
@@ -276,23 +502,56 @@
     }
     const starGeo = new T.BufferGeometry();
     starGeo.setAttribute('position', new T.Float32BufferAttribute(starPos, 3));
-    const starMat = new T.PointsMaterial({ color: 0xffffff, size: 0.7, transparent: true, opacity: 0, depthWrite: false, fog: false });
+    const starMat = new T.PointsMaterial({ color: 0xffffff, size: 0.7, transparent: true, opacity: 0, depthWrite: false, fog: false, toneMapped: false });
     scene.add(new T.Points(starGeo, starMat));
 
-    /* --- Clouds --- */
-    const cloudMat = new T.MeshLambertMaterial({ color: 0xffffff, flatShading: true, fog: false });
-    const puffGeo = new T.IcosahedronGeometry(1, 1);
+    /* --- Clouds: soft billboards with a shaded underside --- */
+    function cloudTexture() {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 128;
+      const g = c.getContext('2d');
+      for (let i = 0; i < 46; i++) {
+        const x = 40 + Math.random() * 176;
+        const spread = 1 - Math.abs(x - 128) / 150;
+        const y = 70 - Math.random() * 30 * spread;
+        const r = 12 + Math.random() * 30 * spread;
+        const grd = g.createRadialGradient(x, y, 0, x, y, r);
+        grd.addColorStop(0, 'rgba(255,255,255,0.45)');
+        grd.addColorStop(0.6, 'rgba(255,255,255,0.18)');
+        grd.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = grd;
+        g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      // darker, flatter base like a real cumulus
+      g.globalCompositeOperation = 'source-atop';
+      const shade = g.createLinearGradient(0, 30, 0, 100);
+      shade.addColorStop(0, 'rgba(255,255,255,0)');
+      shade.addColorStop(1, 'rgba(118,128,150,0.65)');
+      g.fillStyle = shade;
+      g.fillRect(0, 0, 256, 128);
+      g.globalCompositeOperation = 'destination-out';
+      const base = g.createLinearGradient(0, 78, 0, 104);
+      base.addColorStop(0, 'rgba(0,0,0,0)');
+      base.addColorStop(1, 'rgba(0,0,0,1)');
+      g.fillStyle = base;
+      g.fillRect(0, 78, 256, 50);
+      const tex = new T.CanvasTexture(c);
+      tex.encoding = T.sRGBEncoding;
+      return tex;
+    }
+    const cloudMats = [0, 1, 2].map(() => new T.SpriteMaterial({ map: cloudTexture(), transparent: true, depthWrite: false, fog: false }));
     const clouds = [];
     for (let i = 0; i < 9; i++) {
       const extra = i >= 4; // extra clouds roll in when the sky is overcast
       const g = new T.Group();
-      const puffs = [[0, 0, 0, 1.3], [1.4, -0.2, 0, 1], [-1.3, -0.3, 0, 0.9], [0.5, 0.6, 0, 0.9]];
-      puffs.forEach(([x, y, z, s]) => {
-        const p = new T.Mesh(puffGeo, cloudMat);
-        p.position.set(x, y, z);
-        p.scale.set(s, s * 0.75, s * 0.8);
-        g.add(p);
-      });
+      const n = 2 + (i % 2);
+      for (let k = 0; k < n; k++) {
+        const sp = new T.Sprite(cloudMats[(i + k) % 3]);
+        sp.scale.set(5 + Math.random() * 2.5, 2.6 + Math.random(), 1);
+        sp.position.set((k - (n - 1) / 2) * 3 + Math.random(), Math.random() * 0.8, k * 0.4);
+        g.add(sp);
+      }
       if (extra) g.position.set(-16 + (i - 4) * 8 + Math.random() * 3, 3.4 + Math.random() * 2.2, -26 - Math.random() * 3);
       else g.position.set(-14 + i * 9 + Math.random() * 3, 4.6 + Math.random() * 2.6, -28 - Math.random() * 3);
       g.userData.baseScale = extra ? 1.1 + Math.random() * 0.5 : 0.8 + Math.random() * 0.5;
@@ -303,32 +562,132 @@
       scene.add(g);
     }
 
-    /* --- Park: ground, hills, trees, bushes, bench, lamp, flowers --- */
-    const grassDry = new T.Color(0x7cc96d);
-    const grassWet = new T.Color(0x4f9a52);
-    const ground = new T.Mesh(new T.PlaneGeometry(140, 140), mat(0x7cc96d, { flatShading: false }));
+    /* --- Park: ground, grass, hills, trees, bushes, bench, lamp --- */
+    const groundU = { uWet: { value: 0 } };
+    const groundMaterial = (color) => shade(mat(color, { roughness: 1 }), 'ground', {
+      uniforms: groundU,
+      color: `
+        float gBig = pc_fbm(vec3(vWorldP.xz * 0.35, 1.7));
+        float gFine = pc_fbm(vec3(vWorldP.xz * 2.5, 4.2));
+        vec3 gc = diffuseColor.rgb * mix(0.7, 1.2, gBig);
+        gc = mix(gc, gc * vec3(1.15, 1.05, 0.65), smoothstep(0.58, 0.8, gBig) * 0.6);
+        gc *= 0.85 + 0.3 * gFine;
+        diffuseColor.rgb = gc * (1.0 - uWet * 0.3);`,
+      roughness: 'roughnessFactor = mix(roughnessFactor, 0.4, uWet * 0.6);',
+      normal: 'normal = pc_bump(normal, pc_fbm(vec3(vWorldP.xz * 5.0, 0.0)), 0.02);',
+    });
+    const ground = new T.Mesh(new T.PlaneGeometry(140, 140), groundMaterial(0x5f9e45));
     ground.rotation.x = -Math.PI / 2;
+    ground.userData.shadow = 'receive';
     scene.add(ground);
 
-    [[-14, -7, -26, 10, 0x69b85c], [12, -9, -30, 14, 0x5aa651], [0, -10, -36, 14, 0x63ae57]].forEach(([x, y, z, r, c]) => {
-      const hill = new T.Mesh(new T.SphereGeometry(r, 24, 12), mat(c, { flatShading: false }));
+    [[-14, -7, -26, 10, 0x5c9e4c], [12, -9, -30, 14, 0x4f8f45], [0, -10, -36, 14, 0x57984a]].forEach(([x, y, z, r, c]) => {
+      const hill = new T.Mesh(new T.SphereGeometry(r, 48, 24), groundMaterial(c));
       hill.position.set(x, y, z);
+      hill.userData.shadow = 'none';
       scene.add(hill);
     });
 
-    const trunkMat = mat(0x8b5e3c);
+    // Lawn: thousands of instanced blades that sway in the wind (the fan pushes them over)
+    const GRASS_COUNT = lowPower ? 2600 : 5200;
+    const bladeGeo = new T.PlaneGeometry(0.035, 1, 1, 4);
+    bladeGeo.translate(0, 0.5, 0);
+    {
+      const bp = bladeGeo.attributes.position;
+      for (let i = 0; i < bp.count; i++) {
+        const y = bp.getY(i);
+        bp.setX(i, bp.getX(i) * (1 - y * 0.9)); // taper to a point
+        bp.setZ(i, y * y * 0.12); // natural curve
+      }
+      // normals lean up so the lawn shades softly instead of like flat cards
+      const nrm = bladeGeo.attributes.normal;
+      for (let i = 0; i < nrm.count; i++) nrm.setXYZ(i, 0, 0.9, 0.44);
+    }
+    const grassU = { uTime: { value: 0 }, uWind: { value: 0 }, uWet: { value: 0 } };
+    const grassMat = shade(new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.75, side: T.DoubleSide }), 'grass', {
+      uniforms: grassU,
+      vertexPars: 'varying float vBladeH;',
+      project: `
+        vBladeH = uv.y;
+        vec4 mvPosition = vec4(transformed, 1.0);
+        #ifdef USE_INSTANCING
+          mvPosition = instanceMatrix * mvPosition;
+        #endif
+        float gw = sin(mvPosition.x * 1.7 + mvPosition.z * 0.6 + uTime * 2.1) * 0.5 + sin(mvPosition.x * 0.7 - mvPosition.z * 1.3 + uTime * 1.1) * 0.5;
+        float gh = uv.y * uv.y;
+        float gb = (0.04 + uWind * (0.32 + 0.22 * gw)) * gh;
+        mvPosition.x += gb + gw * 0.025 * gh;
+        mvPosition.y -= gb * gb * 0.8;
+        mvPosition = modelViewMatrix * mvPosition;
+        gl_Position = projectionMatrix * mvPosition;`,
+      fragmentPars: 'varying float vBladeH;',
+      color: 'diffuseColor.rgb *= mix(0.55, 1.12, pow(vBladeH, 0.8)) * (1.0 - uWet * 0.2);',
+      normal: 'normal *= faceDirection;', // both sides of a blade face up, so the back isn't black
+    });
+    const grass = new T.InstancedMesh(bladeGeo, grassMat, GRASS_COUNT);
+    {
+      const gm = new T.Object3D();
+      const gcol = new T.Color();
+      const tones = [0x5e9e3c, 0x6fae45, 0x80bc4e, 0x8fbf55, 0x9cc65a, 0x6a9a3a];
+      for (let i = 0; i < GRASS_COUNT; i++) {
+        let x;
+        let z;
+        do { x = (Math.random() - 0.5) * 9; z = -7 + Math.random() * 8.8; } while (Math.hypot(x, z) < 0.62);
+        gm.position.set(x, 0, z);
+        gm.rotation.set((Math.random() - 0.5) * 0.3, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.3);
+        gm.scale.set(0.7 + Math.random() * 0.6, 0.08 + Math.random() * 0.13, 1);
+        gm.updateMatrix();
+        grass.setMatrixAt(i, gm.matrix);
+        grass.setColorAt(i, gcol.setHex(tones[(Math.random() * tones.length) | 0]).multiplyScalar(0.85 + Math.random() * 0.3));
+      }
+    }
+    grass.userData.shadow = 'receive';
+    scene.add(grass);
+
+    // Lumpy, noise-sculpted spheres for tree canopies and bushes
+    function lumpy(radius, amp, seed) {
+      const geo = new T.SphereGeometry(radius, 40, 28);
+      const pos = geo.attributes.position;
+      const v = new V3();
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).normalize();
+        const n = noise3(v.x * 2.2 + seed, v.y * 2.2, v.z * 2.2) * 0.65 + noise3(v.x * 5 + seed, v.y * 5, v.z * 5) * 0.35;
+        v.multiplyScalar(radius * (1 + amp * (n - 0.5) * 2));
+        if (v.y < -radius * 0.3) v.y = -radius * 0.3 + (v.y + radius * 0.3) * 0.4; // flatter underside
+        pos.setXYZ(i, v.x, v.y, v.z);
+      }
+      geo.computeVertexNormals();
+      return geo;
+    }
+    const foliage = (color) => shade(mat(color, { roughness: 0.85 }), 'foliage', {
+      color: `
+        float fBig = pc_fbm(vWorldP * 0.6);
+        float fClump = pc_fbm(vObjP * 7.0);
+        vec3 fc = diffuseColor.rgb * mix(0.75, 1.2, fBig);
+        fc *= mix(0.5, 1.15, smoothstep(0.3, 0.72, fClump));
+        diffuseColor.rgb = fc;`,
+      normal: 'normal = pc_bump(normal, pc_fbm(vObjP * 7.0), 0.04);',
+      output: 'outgoingLight += diffuseColor.rgb * pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 3.0) * 0.15;',
+    });
+    const barkMat = shade(mat(0x6b4a33, { roughness: 0.95 }), 'bark', {
+      color: 'diffuseColor.rgb *= 0.65 + 0.55 * pc_fbm(vec3(vObjP.x * 18.0, vObjP.y * 2.5, vObjP.z * 18.0));',
+      normal: 'normal = pc_bump(normal, pc_fbm(vec3(vObjP.x * 18.0, vObjP.y * 2.5, vObjP.z * 18.0)), 0.01);',
+    });
+
     const trees = [];
     function tree(x, z, s, color) {
       const g = new T.Group();
-      const trunk = new T.Mesh(new T.CylinderGeometry(0.1, 0.14, 1, 6), trunkMat);
-      trunk.position.y = 0.5;
+      const trunk = new T.Mesh(new T.CylinderGeometry(0.08, 0.14, 1.1, 10), barkMat);
+      trunk.position.y = 0.55;
       const crown = new T.Group();
       crown.position.y = 1.0;
-      const c1 = new T.Mesh(new T.IcosahedronGeometry(0.75, 0), mat(color));
-      c1.position.y = 0.45;
-      const c2 = new T.Mesh(new T.IcosahedronGeometry(0.55, 0), mat(color));
-      c2.position.set(0.25, 0.95, 0.1);
-      crown.add(c1, c2);
+      const leafy = foliage(color);
+      const seed = Math.random() * 50;
+      [[0, 0.5, 0, 0.78], [0.35, 0.85, 0.1, 0.55], [-0.32, 0.75, -0.08, 0.58], [0.05, 1.15, -0.05, 0.45]].forEach(([cx, cy, cz, r], k) => {
+        const m = new T.Mesh(lumpy(r, 0.18, seed + k * 7), leafy);
+        m.position.set(cx, cy, cz);
+        crown.add(m);
+      });
       g.add(trunk, crown, shadow(0.75));
       g.position.set(x, 0, z);
       g.scale.setScalar(s);
@@ -337,18 +696,18 @@
       scene.add(g);
     }
     // Keep the space directly behind the plant open so it stands out against the sky
-    tree(-3.1, -3.4, 1.1, 0x4caf50);
-    tree(3.4, -4.4, 1.3, 0x3f9e48);
-    tree(-5.8, -8, 1.6, 0x46a84d);
-    tree(6.2, -9, 1.8, 0x3a9442);
-    tree(-9.5, -13, 2.2, 0x3f9e48);
-    tree(9.5, -14, 2, 0x4caf50);
-    tree(-4, -17, 2.2, 0x43a04a);
-    tree(4.5, -19, 2.4, 0x4fb257);
+    tree(-3.1, -3.4, 1.1, 0x4c9a3f);
+    tree(3.4, -4.4, 1.3, 0x3f8c3a);
+    tree(-5.8, -8, 1.6, 0x46943f);
+    tree(6.2, -9, 1.8, 0x3a8436);
+    tree(-9.5, -13, 2.2, 0x3f8c3a);
+    tree(9.5, -14, 2, 0x4c9a3f);
+    tree(-4, -17, 2.2, 0x43903e);
+    tree(4.5, -19, 2.4, 0x4f9e45);
 
-    const bushMat = mat(0x5cbf62);
-    [[-1.1, -2.0, 0.4], [2.8, -3.2, 0.5], [-3.2, -1.2, 0.45], [1.2, -5.5, 0.45]].forEach(([x, z, s]) => {
-      const b = new T.Mesh(new T.IcosahedronGeometry(1, 0), bushMat);
+    const bushMat = foliage(0x4f9f45);
+    [[-1.1, -2.0, 0.4], [2.8, -3.2, 0.5], [-3.2, -1.2, 0.45], [1.2, -5.5, 0.45]].forEach(([x, z, s], k) => {
+      const b = new T.Mesh(lumpy(1, 0.2, k * 13.7), bushMat);
       b.position.set(x, s * 0.6, z);
       b.scale.set(s * 1.3, s, s);
       const blob = shadow(s * 1.4);
@@ -357,8 +716,10 @@
     });
 
     const bench = new T.Group();
-    const wood = mat(0xb07a4a);
-    const metal = mat(0x4b5260);
+    const wood = shade(mat(0xa8744a, { roughness: 0.7 }), 'wood', {
+      color: 'diffuseColor.rgb *= 0.78 + 0.3 * (sin(vObjP.x * 45.0 + pc_fbm(vObjP * vec3(1.5, 25.0, 25.0)) * 7.0) * 0.5 + 0.5);',
+    });
+    const metal = mat(0x3e444f, { roughness: 0.35, metalness: 0.8 });
     const seat = new T.Mesh(new T.BoxGeometry(1.1, 0.07, 0.36), wood);
     seat.position.y = 0.42;
     const back = new T.Mesh(new T.BoxGeometry(1.1, 0.26, 0.05), wood);
@@ -375,9 +736,9 @@
     scene.add(bench);
 
     const lamp = new T.Group();
-    const pole = new T.Mesh(new T.CylinderGeometry(0.035, 0.05, 2, 8), metal);
+    const pole = new T.Mesh(new T.CylinderGeometry(0.035, 0.05, 2, 12), metal);
     pole.position.y = 1;
-    const head = new T.Mesh(new T.CylinderGeometry(0.15, 0.1, 0.16, 8), metal);
+    const head = new T.Mesh(new T.CylinderGeometry(0.15, 0.1, 0.16, 16), metal);
     head.position.y = 2.06;
     const bulbMat = new T.MeshBasicMaterial({ color: 0x777777 });
     const bulb = new T.Mesh(new T.SphereGeometry(0.085, 12, 8), bulbMat);
@@ -389,7 +750,8 @@
     scene.add(lamp);
 
     const flowerColors = [0xff7aa8, 0xffd84d, 0xffffff, 0xb88cff, 0xff9466];
-    const flowers = new T.InstancedMesh(new T.SphereGeometry(0.06, 6, 4), mat(0xffffff), 46);
+    const flowers = new T.InstancedMesh(new T.SphereGeometry(0.06, 10, 8), mat(0xffffff, { roughness: 0.6 }), 46);
+    flowers.userData.shadow = 'receive';
     const fm = new T.Object3D();
     const fc = new T.Color();
     for (let i = 0; i < flowers.count; i++) {
@@ -415,18 +777,43 @@
     plantRoot.scale.setScalar(0.85);
     scene.add(plantRoot, shadow(0.75));
 
-    const pot = new T.Mesh(new T.CylinderGeometry(0.55, 0.42, 0.8, 32), mat(0xf48a5c, { flatShading: false }));
+    // Terracotta: mottled clay, speckles, faint throwing rings, darker at the base
+    const terracotta = (color) => shade(mat(color, { roughness: 0.82 }), 'terracotta', {
+      color: `
+        float tAng = atan(vObjP.z, vObjP.x);
+        float tN = pc_fbm(vec3(cos(tAng) * 2.5, vObjP.y * 5.0, sin(tAng) * 2.5));
+        float tSpeck = smoothstep(0.78, 0.82, pc_noise(vObjP * 80.0));
+        float tDark = smoothstep(0.82, 0.86, pc_noise(vObjP * 64.0 + 3.0));
+        vec3 tc = diffuseColor.rgb * mix(0.84, 1.12, tN);
+        tc = mix(tc, tc * 1.25, tSpeck * 0.45);
+        tc = mix(tc, tc * 0.62, tDark * 0.5);
+        tc *= 0.95 + 0.05 * sin(vObjP.y * 75.0 + tN * 3.0);
+        tc *= mix(0.75, 1.0, smoothstep(-0.4, -0.1, vObjP.y));
+        diffuseColor.rgb = tc;`,
+      roughness: 'roughnessFactor = clamp(roughnessFactor + (tN - 0.5) * 0.25, 0.0, 1.0);',
+      normal: 'normal = pc_bump(normal, pc_noise(vObjP * 70.0) * 0.5 + tN * 0.5, 0.003);',
+    });
+    const pot = new T.Mesh(new T.CylinderGeometry(0.55, 0.42, 0.8, 48), terracotta(0xf48a5c));
     pot.position.y = 0.4;
-    const rim = new T.Mesh(new T.CylinderGeometry(0.63, 0.63, 0.18, 32), mat(0xf7a073, { flatShading: false }));
+    const rim = new T.Mesh(new T.CylinderGeometry(0.63, 0.63, 0.18, 48), terracotta(0xf7a073));
     rim.position.y = 0.86;
-    const soilDry = new T.Color(0x5b3a24);
-    const soilWet = new T.Color(0x2c180c);
-    const soil = new T.Mesh(new T.CylinderGeometry(0.57, 0.57, 0.04, 32), mat(0x5b3a24));
+    // Soil: crumbly and matte when dry, dark and glossy when wet
+    const soilU = { uWet: { value: 0 } };
+    const soil = new T.Mesh(new T.CylinderGeometry(0.57, 0.57, 0.04, 48), shade(mat(0x5b3a24, { roughness: 0.95 }), 'soil', {
+      uniforms: soilU,
+      color: `
+        float sN = pc_fbm(vObjP * 16.0);
+        float sC = pc_noise(vObjP * 48.0);
+        vec3 sc = diffuseColor.rgb * (0.65 + 0.7 * sN) * (0.8 + 0.4 * sC);
+        diffuseColor.rgb = mix(sc, sc * 0.42, uWet);`,
+      roughness: 'roughnessFactor = mix(roughnessFactor, 0.28, uWet * smoothstep(0.25, 0.65, sN));',
+      normal: 'normal = pc_bump(normal, sN * 0.7 + sC * 0.3, 0.01);',
+    }));
     soil.position.y = 0.94;
     plantRoot.add(pot, rim, soil);
 
     // Face
-    const ink = new T.MeshBasicMaterial({ color: 0x2b1d16 });
+    const ink = new T.MeshPhysicalMaterial({ color: 0x1f1410, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.08 });
     const shine = new T.MeshBasicMaterial({ color: 0xffffff });
     const eyes = [-0.17, 0.17].map((x) => {
       const g = new T.Group();
@@ -474,7 +861,7 @@
 
     // Sweat drop (sick)
     const sweat = new T.Group();
-    const dropMat = new T.MeshStandardMaterial({ color: 0x7cc8ff, roughness: 0.2 });
+    const dropMat = new T.MeshPhysicalMaterial({ color: 0x8fd0ff, roughness: 0.05, clearcoat: 1, transparent: true, opacity: 0.85 });
     const dropBall = new T.Mesh(new T.SphereGeometry(0.05, 12, 8), dropMat);
     const dropTip = new T.Mesh(new T.ConeGeometry(0.047, 0.09, 12), dropMat);
     dropTip.position.y = 0.06;
@@ -498,7 +885,7 @@
     sway.position.y = 0.94;
     plantRoot.add(sway);
 
-    const stemMat = mat(0x6bcb77, { flatShading: false });
+    const stemMat = mat(0x6bcb77, { roughness: 0.5 });
     const stemPts = [new V3(), new V3(), new V3(), new V3()];
     const stemCurve = new T.CatmullRomCurve3(stemPts);
     const stem = new T.Mesh(new T.BufferGeometry(), stemMat);
@@ -516,9 +903,41 @@
       stem.geometry = new T.TubeGeometry(stemCurve, 32, 0.045, 8, false);
     }
 
-    const topLeafMat = mat(0x4cd179, { flatShading: false, side: T.DoubleSide });
-    const lowLeafMat = mat(0x3bb865, { flatShading: false, side: T.DoubleSide });
-    const spotMat = new T.MeshBasicMaterial({ color: 0x6e4a1f, transparent: true, opacity: 0, depthWrite: false });
+    // Leaves: veins, colour variation, blight-like blotches when sick, crisp edges when withered,
+    // and light glowing through them when the sun is behind (translucency)
+    const leafLight = { uSunDirView: { value: new V3(0, 1, 0) }, uSunColor: { value: new T.Color(1, 1, 1) } };
+    function leafMaterial(seed) {
+      return shade(mat(0x4cd179, { roughness: 0.55, side: T.DoubleSide }), 'leaf', {
+        uniforms: Object.assign({ uSeed: { value: seed }, uSpots: { value: 0 }, uDry: { value: 0 } }, leafLight),
+        fragmentPars: 'float leafVeins = 0.0;',
+        color: `
+          vec2 lu = vLocalUv;
+          float ax = abs(lu.x - 0.5);
+          float mid = 1.0 - smoothstep(0.006, 0.022, ax);
+          float sv = abs(fract((lu.y - ax * 1.1) * 7.0) - 0.5);
+          float side = (1.0 - smoothstep(0.02, 0.06, sv)) * smoothstep(0.03, 0.08, ax) * (1.0 - smoothstep(0.32, 0.48, ax));
+          leafVeins = max(mid, side * 0.7) * (1.0 - smoothstep(0.9, 1.0, lu.y));
+          vec3 lc = diffuseColor.rgb;
+          lc *= 0.86 + 0.28 * pc_fbm(vec3(lu * vec2(5.0, 8.0), uSeed));
+          lc *= mix(1.12, 0.92, lu.y);
+          lc = mix(lc, lc * vec3(1.35, 1.4, 0.85) + vec3(0.015, 0.02, 0.0), leafVeins * 0.6);
+          float edge = smoothstep(0.36, 0.5, ax);
+          lc *= 1.0 - edge * (0.18 + 0.45 * uDry);
+          float nb = pc_fbm(vec3(lu * vec2(6.0, 9.0), uSeed * 3.1 + 5.0));
+          lc = mix(lc, lc * vec3(1.45, 1.25, 0.4), smoothstep(0.5, 0.62, nb) * uSpots * 0.75);
+          lc = mix(lc, vec3(0.16, 0.09, 0.03), smoothstep(0.6, 0.67, nb) * uSpots);
+          diffuseColor.rgb = lc;`,
+        roughness: 'roughnessFactor = mix(mix(0.42, 0.68, 1.0 - leafVeins), 0.95, uDry);',
+        normal: 'normal = pc_bump(normal, leafVeins * 0.5 + pc_noise(vec3(vLocalUv * 40.0, uSeed)) * 0.15, 0.003);',
+        output: `
+          vec3 lL = normalize(uSunDirView);
+          float lBack = max(0.0, dot(-normal, lL));
+          float lThrough = pow(max(0.0, dot(-normalize(vViewPosition), lL)), 4.0);
+          outgoingLight += diffuseColor.rgb * vec3(1.05, 1.1, 0.6) * uSunColor * (lBack * 0.55 + lThrough * 0.9) * (1.0 - uDry * 0.8);`,
+      });
+    }
+    const leafMats = [leafMaterial(1.3), leafMaterial(7.9), leafMaterial(4.4), leafMaterial(12.6)];
+    const spotMat = new T.MeshBasicMaterial({ visible: false }); // spots are painted by the leaf shader now
     const spotGeo = new T.CircleGeometry(1, 12);
     const SPOTS = [[-0.15, 0.35, 0.045], [0.14, 0.55, 0.035], [0.02, 0.75, 0.03]];
 
@@ -564,10 +983,10 @@
 
     // side 1 = left, -1 = right; `at` = position along the stem (0 base → 1 tip)
     const leaves = [
-      { leaf: makeLeaf(0.95, 0.62, topLeafMat), side: 1,  at: 1,    top: true,  phase: 0 },
-      { leaf: makeLeaf(0.95, 0.62, topLeafMat), side: -1, at: 1,    top: true,  phase: 1.3 },
-      { leaf: makeLeaf(0.6, 0.4, lowLeafMat),   side: 1,  at: 0.42, top: false, phase: 2.1 },
-      { leaf: makeLeaf(0.6, 0.4, lowLeafMat),   side: -1, at: 0.55, top: false, phase: 0.7 },
+      { leaf: makeLeaf(0.95, 0.62, leafMats[0]), side: 1,  at: 1,    top: true,  phase: 0 },
+      { leaf: makeLeaf(0.95, 0.62, leafMats[1]), side: -1, at: 1,    top: true,  phase: 1.3 },
+      { leaf: makeLeaf(0.6, 0.4, leafMats[2]),   side: 1,  at: 0.42, top: false, phase: 2.1 },
+      { leaf: makeLeaf(0.6, 0.4, leafMats[3]),   side: -1, at: 0.55, top: false, phase: 0.7 },
     ];
     leaves.forEach((l) => {
       l.group = new T.Group();
@@ -576,7 +995,10 @@
     });
 
     // The lower-left leaf drops off when the plant withers
-    const fallenMat = mat(0x86603a, { flatShading: false, side: T.DoubleSide });
+    const fallenMat = leafMaterial(21.7);
+    fallenMat.color.set(0x86603a);
+    fallenMat.userData.uniforms.uDry.value = 1;
+    fallenMat.userData.uniforms.uSpots.value = 0.5;
     const fallen = makeLeaf(0.6, 0.4, fallenMat);
     fallen.spots.forEach((s) => { s.visible = false; });
     shapeLeaf(fallen, 0.6, 0.9, 0.5);
@@ -603,7 +1025,9 @@
       grd.addColorStop(1, 'rgba(255,255,255,0)');
       g.fillStyle = grd;
       g.fillRect(0, 0, 128, 4);
-      return new T.CanvasTexture(c);
+      const tex = new T.CanvasTexture(c);
+      tex.encoding = T.sRGBEncoding;
+      return tex;
     })();
     const streakGeo = new T.PlaneGeometry(1, 1);
     const streaks = [];
@@ -634,13 +1058,14 @@
     }
 
     // Watering can (spout points left, toward the plant)
-    const canMat = mat(0x5bbcf0, { flatShading: false, roughness: 0.45, metalness: 0.2 });
-    const canDark = mat(0x3c94c7, { flatShading: false, roughness: 0.45, metalness: 0.2 });
+    // Painted metal with a clear lacquer
+    const canMat = new T.MeshPhysicalMaterial({ color: 0x4fb0e8, metalness: 0.35, roughness: 0.3, clearcoat: 0.7, clearcoatRoughness: 0.12 });
+    const canDark = new T.MeshPhysicalMaterial({ color: 0x2f86bd, metalness: 0.45, roughness: 0.32, clearcoat: 0.5, clearcoatRoughness: 0.15 });
     const can = new T.Group();
     const canTilt = new T.Group();
     can.add(canTilt);
     const canBody = new T.Mesh(new T.CylinderGeometry(0.28, 0.3, 0.48, 28), canMat);
-    const canBand = new T.Mesh(new T.CylinderGeometry(0.302, 0.302, 0.07, 28), mat(0xffffff, { flatShading: false }));
+    const canBand = new T.Mesh(new T.CylinderGeometry(0.302, 0.302, 0.07, 28), mat(0xffffff, { roughness: 0.4 }));
     canBand.position.y = 0.04;
     const canCap = new T.Mesh(new T.CylinderGeometry(0.21, 0.21, 0.04, 24), canDark);
     canCap.position.y = 0.25;
@@ -660,11 +1085,11 @@
     can.visible = false;
     scene.add(can);
     const CAN_OFF = new V3(2.6, 3.0, 0.6);
-    const CAN_ON = new V3(1.2, 1.7, 0.6);
+    const CAN_ON = new V3(0.95, 1.7, 0.6);
 
     // Water droplets from the can
-    const dropGeo = new T.SphereGeometry(0.024, 8, 6);
-    const waterMat = new T.MeshStandardMaterial({ color: 0x6fc4ff, roughness: 0.15, transparent: true, opacity: 0.9 });
+    const dropGeo = new T.SphereGeometry(0.03, 10, 8);
+    const waterMat = new T.MeshPhysicalMaterial({ color: 0x9fd6ff, roughness: 0.04, clearcoat: 1, transparent: true, opacity: 0.9, envMapIntensity: 2 });
     const drops = [];
     for (let i = 0; i < 60; i++) {
       const d = new T.Mesh(dropGeo, waterMat);
@@ -760,6 +1185,17 @@
       fallen.mesh.rotation.set(-Math.PI / 2, 0, 0.9);
     }
 
+    // Real-time shadows: solid things cast and receive; face details and effects don't
+    const noShadow = new Set([ink, cheekMat, dropMat, waterMat]);
+    bits.forEach((b) => noShadow.add(b.material));
+    scene.traverse((o) => {
+      if (!o.isMesh || !o.material || !o.material.isMeshStandardMaterial) return;
+      const mode = noShadow.has(o.material) ? 'none' : o.userData.shadow || 'both';
+      o.receiveShadow = mode !== 'none';
+      o.castShadow = mode === 'both';
+      o.material.envMapIntensity = o.material === waterMat ? 2 : 0.75; // a little less sky fill so the sun models the shapes
+    });
+
     /* --- Time of day --- */
     const tmp = new V3();
     const tmp2 = new V3();
@@ -768,55 +1204,101 @@
     const white = new T.Color(0xfff4e0);
     const moonLightColor = new T.Color(0x8ea6ff);
     const bulbOff = new T.Color(0x777777);
-    const bulbOn = new T.Color(0xffe3a0);
+    const bulbOn = new T.Color(0xffe3a0).multiplyScalar(3);
     let lampOn = 0;
+
+    const sunDir = new V3();
+    const moonDir = new V3();
+    const lightDir = new V3();
+    const horizon = new V3();
+    const cloudTint = new T.Color();
+    const grey = new T.Color();
+    let envKey = '';
+    let lastBake = -Infinity;
+
+    // Sun / moon path: rises a little left of centre, peaks high overhead, sets a little right
+    function skyPath(t, maxEl) {
+      const el = t > -0.15 && t < 1.15 ? maxEl * Math.sin(Math.PI * t) : -0.32;
+      return [el, T.MathUtils.degToRad(lerp(-5, 5, clamp01(t)))];
+    }
+    const setDir = (v, [el, az]) => v.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
 
     function applySky(h) {
       const s = skyAt(h);
       const sunInfo = sunAt(h);
       const day = sunInfo.daylight;
       const night = 1 - day;
-
-      // Clouds and rain turn the sky grey; lightning briefly lights it up
       const oc = fx.overcast;
-      const dim = 0.3 + 0.7 * day;
-      const flash = [0.85, 0.88, 1];
-      const top = mixRgb(mixRgb(s.top, [0.47 * dim, 0.52 * dim, 0.6 * dim], oc), flash, fx.flash * 0.6);
-      const bottom = mixRgb(mixRgb(s.bottom, [0.68 * dim, 0.71 * dim, 0.76 * dim], oc), flash, fx.flash * 0.5);
-      const cloud = mixRgb(s.cloud, [0.6 * dim, 0.63 * dim, 0.68 * dim], oc);
-      skyUniforms.topColor.value.setRGB(top[0], top[1], top[2]);
-      skyUniforms.bottomColor.value.setRGB(bottom[0], bottom[1], bottom[2]);
-      scene.fog.color.setRGB(bottom[0], bottom[1], bottom[2]);
-      cloudMat.color.setRGB(cloud[0], cloud[1], cloud[2]);
-      cloudMat.emissive.setRGB(cloud[0] * 0.4, cloud[1] * 0.4, cloud[2] * 0.4);
       const clear = clamp01(1 - oc * 1.15);
+
+      const sunPath = skyPath(sunInfo.dayT, 1.25);
+      const moonPath = skyPath(sunInfo.nightT, 1.0);
+      setDir(sunDir, sunPath);
+      setDir(moonDir, moonPath);
+
+      // Atmosphere: hazier and flatter under cloud
+      U.sunPosition.value.copy(sunDir);
+      U.turbidity.value = lerp(2.5, 12, oc);
+      U.rayleigh.value = lerp(3.0, 0.9, oc);
+      U.nightMix.value = Math.pow(night, 1.2);
+      U.overcast.value = oc;
+      U.flash.value = fx.flash;
+      const hz = skyRadiance(horizon.set(0, 0.035, -1).normalize());
+      scene.fog.color.setRGB(hz[0], hz[1], hz[2]);
+
+      // Clouds: tinted by the time of day, greyer and denser when overcast
+      cloudTint.setRGB(s.cloud[0], s.cloud[1], s.cloud[2]).convertSRGBToLinear().multiplyScalar(lerp(0.12, 1.4, Math.sqrt(day)));
+      grey.setRGB(0.42, 0.45, 0.5).multiplyScalar(lerp(0.08, 0.9, day));
+      cloudTint.lerp(grey, oc * 0.8);
+      cloudMats.forEach((m) => {
+        m.color.copy(cloudTint);
+        m.opacity = 0.75 + 0.25 * oc;
+      });
+
+      // Sun and moon discs follow their real directions (so they're in view around sunrise / sunset)
+      sun.visible = sunPath[0] > -0.06;
+      sun.position.copy(camera.position).addScaledVector(sunDir, 60);
+      moon.visible = moonPath[0] > -0.06;
+      moon.position.copy(camera.position).addScaledVector(moonDir, 60);
       sun.material.opacity = sun.children[0].material.opacity = clear;
-      moon.material.opacity = moon.children[0].material.opacity = clear;
+      moon.material.opacity = moon.children[0].material.opacity = clear * clamp01(night * 1.5);
 
-      // Sun and moon arc across the visible part of the sky
-      const dist = camera.position.z + 35;
-      const xRange = 0.75 * Math.tan(T.MathUtils.degToRad(camera.fov / 2)) * camera.aspect * dist;
-      const arcY = (t) => 1.9 + Math.sin(Math.PI * t) * 6.6;
-      sun.visible = sunInfo.dayT > -0.05 && sunInfo.dayT < 1.05;
-      sun.position.set(-Math.cos(Math.PI * sunInfo.dayT) * xRange, arcY(sunInfo.dayT), -35);
-      moon.visible = sunInfo.nightT > -0.05 && sunInfo.nightT < 1.05;
-      moon.position.set(-Math.cos(Math.PI * sunInfo.nightT) * xRange, arcY(sunInfo.nightT) * 0.95, -35);
+      // Key light: warm and low at golden hour, white at noon, cool moonlight at night
+      const sunUp = smoothstep(-0.03, 0.12, sunPath[0]);
+      const moonUp = smoothstep(-0.03, 0.15, moonPath[0]) * (1 - sunUp);
+      sunColor.copy(white).lerp(warm, 1 - smoothstep(0.03, 0.45, sunPath[0]));
+      sunLight.color.copy(moonLightColor).lerp(sunColor, sunUp / Math.max(1e-3, sunUp + moonUp));
+      sunLight.intensity = (4.2 * sunUp + 0.35 * moonUp) * (1 - 0.7 * oc);
+      lightDir.copy(sunUp >= moonUp ? sunDir : moonDir);
+      lightDir.y = Math.max(lightDir.y, 0.08); // keep shadows a sensible length right at the horizon
+      lightDir.normalize();
+      sunLight.position.copy(sunLight.target.position).addScaledVector(lightDir, 25);
 
-      hemi.color.setRGB(lerp(0.45, s.top[0], 0.6), lerp(0.5, s.top[1], 0.6), lerp(0.7, s.top[2], 0.6));
-      hemi.intensity = (0.4 + 0.5 * day) * (1 - 0.3 * oc) + fx.flash * 1.2;
+      // Soft fill from the camera side keeps the pot's face readable when the sun is behind it
+      fillLight.intensity = (0.35 + 0.25 * oc) * day + 0.05;
+      hemi.intensity = 0.12 + fx.flash * 2.5;
 
-      sunColor.copy(white).lerp(warm, 1 - smoothstep(0, 0.45, sunInfo.elevation));
-      sunLight.color.copy(moonLightColor).lerp(sunColor, day);
-      sunLight.intensity = (0.25 + 0.7 * day) * (1 - 0.55 * oc);
-      // Light from the camera side (shifted toward the sun/moon) so the plant's face is lit
-      tmp.copy(moon.position).lerp(sun.position, day);
-      sunLight.position.set(tmp.x * 0.25, 6, 8);
+      // Leaf translucency follows the key light
+      leafLight.uSunDirView.value.copy(lightDir).transformDirection(camera.matrixWorldInverse);
+      leafLight.uSunColor.value.copy(sunLight.color).multiplyScalar(sunLight.intensity * 0.2);
 
+      // exposure follows the real sun height, so dawn and dusk stay golden instead of being brightened to daylight
+      renderer.toneMappingExposure = lerp(1.5, 0.45, smoothstep(-0.12, 0.06, sunPath[0])) * (1 + 0.35 * oc);
       starMat.opacity = Math.pow(night, 1.5) * 0.9 * clear;
       lampOn = smoothstep(0.35, 0.75, night);
       bulbMat.color.copy(bulbOff).lerp(bulbOn, lampOn);
       lampGlow.material.opacity = lampOn;
-      lampLight.intensity = 1.4 * lampOn;
+      lampLight.intensity = 3 * lampOn;
+      envGround.material.color.copy(envGroundColor).multiplyScalar(lerp(0.02, 0.35, day) * (1 - 0.4 * oc));
+
+      // Re-bake the image-based lighting when the sky has changed noticeably
+      const key = [sunPath[0], moonPath[0], oc, night].map((v) => Math.round(v * 12)).join('|');
+      const now = performance.now();
+      if (key !== envKey && now - lastBake > 2000) {
+        envKey = key;
+        lastBake = now;
+        updateEnvironment();
+      }
     }
 
     /* --- Sizing --- */
@@ -866,11 +1348,17 @@
       const gust = fx.wind * (0.75 + 0.25 * Math.sin(time * 2.3)) * motion;
       windPhase += dt * (0.8 + 2.5 * fx.wind);
 
-      topLeafMat.color.copy(p.topLeaf);
-      lowLeafMat.color.copy(p.lowLeaf);
+      const dry = smoothstep(0.3, 0.9, p.curl);
+      leaves.forEach((l, i) => {
+        const m = leafMats[i];
+        m.color.copy(l.top ? p.topLeaf : p.lowLeaf);
+        m.userData.uniforms.uSpots.value = p.spots;
+        m.userData.uniforms.uDry.value = dry;
+      });
       stemMat.color.copy(p.stem);
       cheekMat.color.copy(p.cheekColor);
-      spotMat.opacity = p.spots;
+      grassU.uTime.value = time * motion;
+      grassU.uWind.value = fx.wind * motion;
 
       buildStem(p.droop);
 
@@ -1004,7 +1492,7 @@
           d.position.copy(spoutTip);
           canTilt.localToWorld(d.position);
           tmp2.copy(SPOUT_DIR).transformDirection(canTilt.matrixWorld);
-          d.userData.vel.copy(tmp2).multiplyScalar(0.85 + Math.random() * 0.35);
+          d.userData.vel.copy(tmp2).multiplyScalar(0.6 + Math.random() * 0.3);
           d.userData.vel.y += (Math.random() - 0.5) * 0.1;
           d.userData.vel.z += (Math.random() - 0.5) * 0.15;
           d.userData.alive = true;
@@ -1060,8 +1548,9 @@
 
       // Wet soil and grass
       fx.wet = pouring || fx.rain > 0.4 ? Math.min(1, fx.wet + dt * 0.5) : Math.max(0, fx.wet - dt * 0.03);
-      soil.material.color.copy(soilDry).lerp(soilWet, fx.wet);
-      ground.material.color.copy(grassDry).lerp(grassWet, fx.rain * 0.6);
+      soilU.uWet.value = fx.wet;
+      groundU.uWet.value = fx.rain * 0.8;
+      grassU.uWet.value = fx.rain * 0.8;
 
       // Lightning during storms
       if (conditions.storm && fx.rain > 0.5 && time > nextFlash) {

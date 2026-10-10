@@ -1,0 +1,762 @@
+/* ========== Simulation page ========== */
+
+.sim-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.dash-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.dash-chip .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #D1D5DB;
+}
+
+.dash-chip.is-on {
+  border-color: #CBEFD7;
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.dash-chip.is-on .dot {
+  background: var(--green);
+  animation: blink 1.6s ease-in-out infinite;
+}
+
+.sim-btn {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+}
+
+.sim-btn:hover {
+  border-color: var(--green);
+}
+
+.sim-btn:active {
+  transform: scale(0.96);
+}
+
+.sim-btn.primary {
+  border-color: var(--green);
+  background: var(--green);
+  color: #FFFFFF;
+}
+
+.sim-btn.primary[aria-pressed="true"] {
+  border-color: #E0A021;
+  background: #E0A021;
+}
+
+.sim-btn:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.sim-warning {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid #F6D58B;
+  border-radius: 12px;
+  background: #FFF8E6;
+  font-size: 13px;
+  color: #7A5300;
+}
+
+.sim-warning[hidden] {
+  display: none;
+}
+
+/* ----- layout ----- */
+.sim-top {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 20px;
+}
+
+.sim-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.serial-card {
+  margin-top: 20px;
+}
+
+.sim-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sim-source-switch {
+  margin-top: 14px;
+}
+
+.sim-source-switch button {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.sim-source-switch button[data-source="simulation"][aria-pressed="true"] {
+  background: #E8F3FC;
+  color: #1F6FA8;
+}
+
+.flow.is-unplugged #wire-serial {
+  opacity: 0.3;
+}
+
+.sim-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/* ----- plant condition ----- */
+.sim-state {
+  margin-top: 14px;
+}
+
+.sim-state button {
+  flex: 1;
+  padding-inline: 8px;
+  white-space: nowrap;
+}
+
+.sim-state button[data-state="sick"][aria-pressed="true"] {
+  background: #FEF3E2;
+  color: #A86A00;
+}
+
+.sim-state button[data-state="withered"][aria-pressed="true"] {
+  background: #F5EDE4;
+  color: #8A6A45;
+}
+
+.sim-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.sim-field select,
+.sim-field input {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.sim-field input:disabled {
+  opacity: 0.5;
+}
+
+.sim-field select:focus-visible,
+.sim-field input:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+}
+
+.sim-note {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ----- data flow diagram ----- */
+.flow {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr) minmax(36px, 0.6fr) minmax(0, 1fr) minmax(36px, 0.6fr) minmax(0, 1fr)
+    minmax(44px, 0.8fr) minmax(0, 1fr) minmax(44px, 0.9fr) minmax(0, 1fr);
+  align-items: center;
+  margin-top: 22px;
+}
+
+.flow-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 6px;
+  border-radius: 14px;
+  background: #F6F8F7;
+  text-align: center;
+}
+
+.flow-node strong {
+  font-size: 13px;
+}
+
+.flow-node small {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.flow-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #E3F1E8;
+  color: var(--green-dark);
+}
+
+.flow-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.flow-wire {
+  position: relative;
+  height: 2px;
+  margin: 0 4px;
+  background: repeating-linear-gradient(90deg, #B8C4BD 0 6px, transparent 6px 11px);
+}
+
+.wire-label {
+  position: absolute;
+  bottom: 10px;
+  line-height: 1.25;
+  text-align: center;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.flow.is-offline #wire-dash {
+  opacity: 0.35;
+}
+
+.packet {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  border-radius: 50%;
+  animation: packet-move 0.8s ease-in-out forwards;
+}
+
+.packet.reverse {
+  animation-name: packet-back;
+}
+
+.packet.data,
+.swatch.packet-data {
+  background: #2E9E57;
+}
+
+.packet.sense {
+  background: #8FBF55;
+}
+
+.packet.command,
+.swatch.packet-command {
+  background: #2B88CC;
+}
+
+.packet.status,
+.swatch.packet-status {
+  background: #E0A021;
+}
+
+.flow-legend {
+  margin-top: 18px;
+}
+
+/* the card is as tall as the left column; keep the diagram centred in it */
+.sim-flow-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.sim-flow-card .flow {
+  margin-top: auto;
+  margin-bottom: auto;
+  padding: 22px 0 8px;
+}
+
+body.sim-paused .flow,
+body.sim-paused .relays {
+  opacity: 0.5;
+}
+
+@keyframes packet-move {
+  from { left: 0; opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  to   { left: calc(100% - 10px); opacity: 0; }
+}
+
+@keyframes packet-back {
+  from { left: calc(100% - 10px); opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  to   { left: 0; opacity: 0; }
+}
+
+/* ----- ESP32 card ----- */
+.sim-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--green-soft);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green-dark);
+  white-space: nowrap;
+}
+
+.sim-chip.is-bad {
+  background: #FFF1EE;
+  color: #B4432B;
+}
+
+.sim-readings {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sim-readings .tile {
+  box-shadow: none;
+}
+
+.sim-readings .tile strong {
+  font-size: 22px;
+}
+
+.relays {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+  transition: opacity 0.3s ease;
+}
+
+.relay {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.relay div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.relay strong {
+  font-size: 13px;
+}
+
+.relay small {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.lamp {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #D1D5DB;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.relay-state {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.relay.is-on {
+  border-color: #CBEFD7;
+  background: #F2FBF5;
+}
+
+.relay.is-on .lamp {
+  background: var(--green);
+  box-shadow: 0 0 0 4px rgba(76, 209, 121, 0.2), 0 0 10px rgba(76, 209, 121, 0.7);
+}
+
+.relay.is-on .relay-state {
+  color: var(--green-dark);
+}
+
+.sim-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.sim-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sim-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.slider-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 46px 28px;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.slider-row input {
+  width: 100%;
+  accent-color: var(--green);
+}
+
+.slider-row input:disabled {
+  opacity: 0.45;
+}
+
+.slider-row output {
+  text-align: right;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.sim-line-label {
+  margin-top: 14px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sim-line {
+  display: block;
+  overflow-x: auto;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #F6F8F7;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* ----- ESP server card ----- */
+.endpoints {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.endpoint {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.endpoint-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.endpoint-head code {
+  font-weight: 700;
+}
+
+.endpoint-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.endpoint pre {
+  margin-top: 8px;
+  overflow-x: auto;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.req-method {
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.req-post {
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.req-get {
+  background: #E8F3FC;
+  color: #1F6FA8;
+}
+
+.req-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.req-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.req-list code {
+  font-weight: 600;
+}
+
+.req-result.is-error {
+  color: #B4432B;
+}
+
+.req-result {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
+.endpoint-foot {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ----- backend card ----- */
+.sim-backend {
+  margin-top: 20px;
+}
+
+.backend-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 20px;
+}
+
+.backend-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sim-subtitle {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sim-subtitle small {
+  margin-left: 4px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.backend-pre {
+  overflow-x: auto;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #F6F8F7;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+}
+
+.backend-col .sim-note {
+  margin-top: 0;
+}
+
+@media (max-width: 1180px) {
+  .backend-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ----- serial monitor ----- */
+.log-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.serial-log {
+  height: 280px;
+  overflow-y: auto;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #0F1115;
+  color: #D1D5DB;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.serial-log:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.log-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.log-time {
+  margin-right: 10px;
+  color: #6B7280;
+}
+
+.log-tx    { color: #86EFAC; }
+.log-rx    { color: #7DD3FC; }
+.log-info  { color: #D1D5DB; }
+.log-error { color: #FCA5A5; }
+
+/* ----- responsive ----- */
+@media (max-width: 1180px) {
+  .sim-top,
+  .sim-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .flow {
+    grid-template-columns: 1fr;
+  }
+
+  .flow-wire {
+    justify-self: center;
+    width: 2px;
+    height: 34px;
+    margin: 4px 0;
+    background: repeating-linear-gradient(180deg, #B8C4BD 0 6px, transparent 6px 11px);
+  }
+
+  .wire-label {
+    bottom: auto;
+    top: 50%;
+    left: 12px;
+    transform: translateY(-50%);
+  }
+
+  .packet {
+    top: 0;
+    left: 50%;
+    margin: 0 0 0 -5px;
+    animation-name: packet-down;
+  }
+
+  .packet.reverse {
+    animation-name: packet-up;
+  }
+
+  .sim-readings,
+  .relays,
+  .endpoints {
+    grid-template-columns: 1fr;
+  }
+
+  .slider-row {
+    grid-template-columns: 80px minmax(0, 1fr) 40px 26px;
+  }
+}
+
+@keyframes packet-down {
+  from { top: 0; opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  to   { top: calc(100% - 10px); opacity: 0; }
+}
+
+@keyframes packet-up {
+  from { top: calc(100% - 10px); opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  to   { top: 0; opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .packet {
+    display: none;
+  }
+
+  .dash-chip.is-on .dot {
+    animation: none;
+  }
+}

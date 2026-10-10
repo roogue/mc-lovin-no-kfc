@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Plant Check — Monitoring History</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+			rel="stylesheet" />
+		<link rel="stylesheet" href="style.css" />
+		<link rel="stylesheet" href="pages.css" />
+	</head>
+	<body>
+		<input
+			type="checkbox"
+			id="nav-toggle"
+			class="nav-toggle"
+			aria-label="Toggle sidebar" />
+
+		<div class="app">
+			<!-- ========== SIDEBAR ========== -->
+			<aside class="sidebar">
+				<div class="sidebar-header">
+					<a href="index.html" class="logo">
+						<svg class="logo-icon" viewBox="0 0 40 40" aria-hidden="true">
+							<path
+								d="M20 20 C 14 21, 6 18, 4 10 C 11 8, 18 12, 20 20 Z"
+								fill="#4CD179" />
+							<path
+								d="M20 20 C 26 21, 34 18, 36 10 C 29 8, 22 12, 20 20 Z"
+								fill="#7FDC9C" />
+							<line
+								x1="20"
+								y1="19"
+								x2="20"
+								y2="26"
+								stroke="#4CD179"
+								stroke-width="2" />
+							<rect x="10" y="25" width="20" height="4" rx="1" fill="#F48A5C" />
+							<path d="M12 30 H28 L26 37 H14 Z" fill="#F9A47D" />
+						</svg>
+						<span class="logo-text">Plant<br />Check</span>
+					</a>
+
+					<label
+						for="nav-toggle"
+						class="toggle-btn"
+						title="Collapse / expand sidebar">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M15 6l-6 6 6 6" />
+						</svg>
+					</label>
+				</div>
+
+				<nav class="nav">
+					<a href="index.html" class="nav-item" title="Overview">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<rect x="3" y="3" width="7" height="7" rx="1.5" />
+							<rect x="14" y="3" width="7" height="7" rx="1.5" />
+							<rect x="3" y="14" width="7" height="7" rx="1.5" />
+							<rect x="14" y="14" width="7" height="7" rx="1.5" />
+						</svg>
+						<span class="nav-label">Overview</span>
+					</a>
+					<a href="disease.html" class="nav-item" title="Disease">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M5 19c0-8 6-14 15-14 0 9-6 15-14 15" />
+							<path d="M5 19l7-7" />
+							<circle cx="14" cy="10" r="1" />
+						</svg>
+						<span class="nav-label">Disease</span>
+					</a>
+					<a href="monitoring-history.html" class="nav-item active" title="Monitoring History">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M3 12a9 9 0 1 0 3-6.7" />
+							<path d="M3 4v4h4" />
+							<path d="M12 7v5l3 2" />
+						</svg>
+						<span class="nav-label">Monitoring History</span>
+					</a>
+					<a href="report.html" class="nav-item" title="Report">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path
+								d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+							<path d="M14 3v6h6" />
+							<path d="M8 13h8M8 17h5" />
+						</svg>
+						<span class="nav-label">Report</span>
+					</a>
+					<a href="simulation.html" class="nav-item" title="Simulation">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<rect x="6" y="6" width="12" height="12" rx="2" />
+							<path d="M10 10h4v4h-4z" />
+							<path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" />
+						</svg>
+						<span class="nav-label">Simulation</span>
+					</a>
+				</nav>
+			</aside>
+
+			<!-- ========== MAIN CONTENT ========== -->
+			<main class="main">
+				<div class="page-head">
+					<div>
+						<h1>Monitoring History</h1>
+						<p>Daily sensor averages and device activity at Kuching Waterfront.</p>
+					</div>
+					<div class="range-switch" role="group" aria-label="Date range">
+						<button type="button" data-range="7" aria-pressed="true">7 days</button>
+						<button type="button" data-range="14" aria-pressed="false">14 days</button>
+					</div>
+				</div>
+
+				<section class="tiles" id="history-tiles" aria-label="Summary for the selected range">
+					<div class="tile"><span>Avg temperature</span><strong id="tile-temp">–</strong><small>daily average</small></div>
+					<div class="tile"><span>Avg humidity</span><strong id="tile-humidity">–</strong><small>daily average</small></div>
+					<div class="tile"><span>Fan uses</span><strong id="tile-fan">–</strong><small id="tile-fan-sub">in total</small></div>
+					<div class="tile"><span>Waterings</span><strong id="tile-water">–</strong><small id="tile-water-sub">in total</small></div>
+					<div class="tile"><span>Healthy days</span><strong id="tile-healthy">–</strong><small id="tile-healthy-sub">plant condition</small></div>
+				</section>
+
+				<section class="chart-grid">
+					<article class="card panel">
+						<h2 class="panel-title">Temperature</h2>
+						<p class="chart-sub">Daily average, °C</p>
+						<div class="chart-box" id="temp-chart"></div>
+					</article>
+					<article class="card panel">
+						<h2 class="panel-title">Humidity</h2>
+						<p class="chart-sub">Daily average, %</p>
+						<div class="chart-box" id="humidity-chart"></div>
+					</article>
+					<article class="card panel chart-wide">
+						<div class="chart-head">
+							<div>
+								<h2 class="panel-title">Device activity</h2>
+								<p class="chart-sub">Times used per day</p>
+							</div>
+							<ul class="legend" aria-label="Legend">
+								<li><span class="swatch" style="background: #2b88cc"></span>Fan uses</li>
+								<li><span class="swatch" style="background: #2e9e57"></span>Waterings</li>
+							</ul>
+						</div>
+						<div class="chart-box" id="device-chart"></div>
+					</article>
+				</section>
+
+				<section class="card panel history-card" aria-labelledby="history-title">
+					<h2 class="panel-title" id="history-title">Daily history</h2>
+					<p class="chart-sub" id="history-sub">Newest first</p>
+					<div class="table-wrap">
+						<table class="updates-table">
+							<thead>
+								<tr>
+									<th scope="col">Date</th>
+									<th scope="col">Plant condition</th>
+									<th scope="col" class="num">Avg temp</th>
+									<th scope="col" class="num">Avg humidity</th>
+									<th scope="col" class="num">Avg precip.</th>
+									<th scope="col" class="num icon-col" title="Times the fan was used">
+										<svg viewBox="0 0 24 24" aria-hidden="true">
+											<circle cx="12" cy="12" r="2" />
+											<path d="M12 10c0-3 .5-6 3-6s3 3.5 0 5.5" />
+											<path d="M14 12c3 0 6 .5 6 3s-3.5 3-5.5 0" />
+											<path d="M12 14c0 3-.5 6-3 6s-3-3.5 0-5.5" />
+											<path d="M10 12c-3 0-6-.5-6-3s3.5-3 5.5 0" />
+										</svg>
+										<span class="visually-hidden">Times the fan was used</span>
+									</th>
+									<th scope="col" class="num icon-col" title="Times irrigation ran">
+										<svg viewBox="0 0 24 24" aria-hidden="true">
+											<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z" />
+										</svg>
+										<span class="visually-hidden">Times irrigation ran</span>
+									</th>
+									<th scope="col">Plant disease</th>
+								</tr>
+							</thead>
+							<tbody id="history-body"></tbody>
+						</table>
+					</div>
+				</section>
+			</main>
+		</div>
+
+		<script src="updates.js"></script>
+		<script src="monitoring.js"></script>
+	</body>
+</html>

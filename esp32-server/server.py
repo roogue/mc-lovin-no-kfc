@@ -1,3 +1,14 @@
+"""
+ESP SERVER: bridge between the ESP32 (USB serial) and the PlantCheck API.
+
+  ESP32 --serial--> this script --POST /data-->  api.putrinaqibah.com
+  ESP32 <--serial-- this script <--GET /status-- api.putrinaqibah.com
+
+Run:
+  pip install pyserial requests
+  python server.py
+"""
+
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor

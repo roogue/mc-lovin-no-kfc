@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Plant Check — Report History</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+			rel="stylesheet" />
+		<link rel="stylesheet" href="style.css" />
+		<link rel="stylesheet" href="report.css" />
+	</head>
+	<body>
+		<input
+			type="checkbox"
+			id="nav-toggle"
+			class="nav-toggle"
+			aria-label="Toggle sidebar" />
+
+		<div class="app">
+			<!-- ========== SIDEBAR ========== -->
+			<aside class="sidebar">
+				<div class="sidebar-header">
+					<a href="index.html" class="logo">
+						<svg class="logo-icon" viewBox="0 0 40 40" aria-hidden="true">
+							<path
+								d="M20 20 C 14 21, 6 18, 4 10 C 11 8, 18 12, 20 20 Z"
+								fill="#4CD179" />
+							<path
+								d="M20 20 C 26 21, 34 18, 36 10 C 29 8, 22 12, 20 20 Z"
+								fill="#7FDC9C" />
+							<line
+								x1="20"
+								y1="19"
+								x2="20"
+								y2="26"
+								stroke="#4CD179"
+								stroke-width="2" />
+							<rect x="10" y="25" width="20" height="4" rx="1" fill="#F48A5C" />
+							<path d="M12 30 H28 L26 37 H14 Z" fill="#F9A47D" />
+						</svg>
+						<span class="logo-text">Plant<br />Check</span>
+					</a>
+
+					<label
+						for="nav-toggle"
+						class="toggle-btn"
+						title="Collapse / expand sidebar">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M15 6l-6 6 6 6" />
+						</svg>
+					</label>
+				</div>
+
+				<nav class="nav">
+					<a href="index.html" class="nav-item" title="Overview">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<rect x="3" y="3" width="7" height="7" rx="1.5" />
+							<rect x="14" y="3" width="7" height="7" rx="1.5" />
+							<rect x="3" y="14" width="7" height="7" rx="1.5" />
+							<rect x="14" y="14" width="7" height="7" rx="1.5" />
+						</svg>
+						<span class="nav-label">Overview</span>
+					</a>
+					<a href="disease.html" class="nav-item" title="Disease">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M5 19c0-8 6-14 15-14 0 9-6 15-14 15" />
+							<path d="M5 19l7-7" />
+							<circle cx="14" cy="10" r="1" />
+						</svg>
+						<span class="nav-label">Disease</span>
+					</a>
+					<a href="monitoring-history.html" class="nav-item" title="Monitoring History">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M3 12a9 9 0 1 0 3-6.7" />
+							<path d="M3 4v4h4" />
+							<path d="M12 7v5l3 2" />
+						</svg>
+						<span class="nav-label">Monitoring History</span>
+					</a>
+					<a href="report.html" class="nav-item active" title="Report">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path
+								d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+							<path d="M14 3v6h6" />
+							<path d="M8 13h8M8 17h5" />
+						</svg>
+						<span class="nav-label">Report</span>
+					</a>
+					<a href="simulation.html" class="nav-item" title="Simulation">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<rect x="6" y="6" width="12" height="12" rx="2" />
+							<path d="M10 10h4v4h-4z" />
+							<path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" />
+						</svg>
+						<span class="nav-label">Simulation</span>
+					</a>
+				</nav>
+			</aside>
+
+			<!-- ========== MAIN CONTENT ========== -->
+			<main class="main">
+				<div class="page-head">
+					<div>
+						<h1>Report History</h1>
+						<p>Monthly snapshots of climate, device activity and plant health.</p>
+					</div>
+				</div>
+
+				<section class="report-grid" id="report-grid" aria-label="Monthly reports">
+					<!-- cards injected by report.js -->
+				</section>
+			</main>
+		</div>
+
+		<!-- ========== Report detail / print modal ========== -->
+		<div class="report-modal" id="report-modal" aria-hidden="true">
+			<div class="report-sheet" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
+				<div class="report-modal-bar">
+					<h2 id="report-modal-title">Monthly Report</h2>
+					<div class="report-modal-actions">
+						<button type="button" class="export-btn" id="report-export">
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path d="M12 3v12m0 0l-4-4m4 4l4-4" />
+								<path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+							</svg>
+							Export PDF
+						</button>
+						<button type="button" class="close-btn" id="report-close">
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path d="M6 6l12 12M18 6L6 18" />
+							</svg>
+							Close
+						</button>
+					</div>
+				</div>
+
+				<div class="report-doc" id="report-doc">
+					<!-- report document injected by report.js -->
+				</div>
+			</div>
+		</div>
+
+		<script src="report.js"></script>
+	</body>
+</html>
