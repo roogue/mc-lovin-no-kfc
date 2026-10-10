@@ -1,0 +1,107 @@
+import math
+import os
+import time
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)
+
+DEVICE_KEY = os.environ["DEVICE_KEY"]
+DASH_KEY = os.environ["DASH_KEY"]
+REQUIRE_DEVICE_KEY = os.environ.get("REQUIRE_DEVICE_KEY") == "1"
+FIELDS = ("temperature", "humidity", "pressure")
+STALE_AFTER = 10
+DEFAULT_VALVE_SECONDS = 60
+MAX_VALVE_SECONDS = 600
+
+sensor = {}
+fan_on = False
+valve_until = 0.0
+
+
+def is_number(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def relay_state():
+    remaining = max(0.0, valve_until - time.time())
+    return {"fan": fan_on, "valve": remaining > 0, "valve_remaining": round(remaining)}
+
+
+# ---- ESP SERVER <-> backend (team diagram) ----
+
+@app.post("/data")
+def post_data():
+    if REQUIRE_DEVICE_KEY and request.headers.get("X-API-Key") != DEVICE_KEY:
+        return jsonify(error="unauthorized"), 401
+    data = request.get_json(silent=True, force=True)
+    if not isinstance(data, dict) or not all(is_number(data.get(k)) for k in FIELDS):
+        return jsonify(error="invalid reading"), 400
+    sensor.clear()
+    sensor.update({k: data[k] for k in FIELDS}, received_at=time.time())
+    return jsonify(ok=True)
+
+
+@app.get("/status")
+def get_status():
+    s = relay_state()
+    return jsonify(fan=s["fan"], valve=s["valve"])
+
+
+# ---- Frontend <-> backend ----
+
+@app.get("/api/sensor")
+def get_sensor():
+    if not sensor:
+        return jsonify(connected=False)
+    age = time.time() - sensor["received_at"]
+    return jsonify({**sensor, "age": round(age, 1), "connected": age < STALE_AFTER})
+
+
+@app.get("/api/relay")
+def get_relay():
+    return jsonify(relay_state())
+
+
+@app.post("/api/relay")
+def post_relay():
+    global fan_on, valve_until
+    if request.headers.get("X-API-Key") != DASH_KEY:
+        return jsonify(error="unauthorized"), 401
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error="invalid json"), 400
+    # Only real JSON booleans, so the string "false" can't switch anything on
+    for k in ("fan", "valve"):
+        if k in data and not isinstance(data[k], bool):
+            return jsonify(error=f"{k} must be true or false"), 400
+    secs = None
+    if data.get("valve") is True:
+        try:
+            secs = int(data.get("seconds", DEFAULT_VALVE_SECONDS))
+        except (TypeError, ValueError):
+            return jsonify(error="seconds must be a number"), 400
+    # Everything is valid: apply it all at once, so a rejected request changes nothing
+    if "fan" in data:
+        fan_on = data["fan"]
+    if "valve" in data:
+        valve_until = time.time() + min(max(secs, 1), MAX_VALVE_SECONDS) if secs is not None else 0.0
+    return jsonify(relay_state())
+
+
+# Log failed device requests with their body, to debug format mismatches
+@app.after_request
+def log_device_errors(resp):
+    if request.path in ("/data", "/status") and resp.status_code >= 400:
+        app.logger.warning(
+            "%s %s -> %s | UA=%s | body=%s",
+            request.method, request.path, resp.status_code,
+            request.headers.get("User-Agent"),
+            request.get_data(as_text=True)[:300],
+        )
+    return resp
+
+
+if __name__ == "__main__":
+    app.run(host="::", port=9012)

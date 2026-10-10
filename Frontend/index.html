@@ -89,12 +89,33 @@
 						</svg>
 						<span class="nav-label">Report</span>
 					</a>
+					<a href="simulation.html" class="nav-item" title="Simulation">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<rect x="6" y="6" width="12" height="12" rx="2" />
+							<path d="M10 10h4v4h-4z" />
+							<path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" />
+						</svg>
+						<span class="nav-label">Simulation</span>
+					</a>
 				</nav>
 			</aside>
 
 			<!-- ========== MAIN CONTENT ========== -->
 			<main class="main">
-				<h1 class="greeting">Hello Admin!</h1>
+				<div class="greeting-row">
+					<h1 class="greeting">Hello Admin!</h1>
+					<div class="source-menu">
+						<button type="button" class="source-chip" id="source-chip" data-state="sample" aria-haspopup="true" aria-expanded="false" aria-controls="source-options">
+							<span class="dot"></span><span id="source-chip-text">Sample data</span>
+							<svg class="source-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+						</button>
+						<div class="source-options" id="source-options" role="menu" aria-label="Data source" hidden>
+							<button type="button" role="menuitemradio" aria-checked="false" data-source="live"><strong>Live</strong><small>Real readings from the ESP32 via the server</small></button>
+							<button type="button" role="menuitemradio" aria-checked="false" data-source="sample"><strong>Sample data</strong><small>Demo readings for trying things out</small></button>
+							<button type="button" role="menuitemradio" aria-checked="false" data-source="simulation"><strong>Simulation</strong><small>Readings from the simulation page</small></button>
+						</div>
+					</div>
+				</div>
 
 				<!-- Plant status banner: follows the plant's condition and the sensors (see alert.js) -->
 				<section class="plant-alert" id="plant-alert" data-status="healthy" aria-labelledby="alert-title">
@@ -501,6 +522,7 @@
 									required />
 								<button type="submit">Start</button>
 							</form>
+							<p class="irrigation-limit" id="irrigation-limit" hidden>Live mode: up to 10 min per watering (server limit)</p>
 
 							<button
 								type="button"
@@ -558,6 +580,29 @@
 			</main>
 		</div>
 
+		<!-- Shown in live-data mode when no readings arrive from the ESP32 (see live-status.js) -->
+		<dialog class="offline-modal" id="offline-modal" aria-labelledby="offline-title" aria-describedby="offline-text">
+			<div class="offline-art" aria-hidden="true">
+				<svg viewBox="0 0 64 64">
+					<rect x="8" y="22" width="26" height="20" rx="4" />
+					<path d="M34 28h6M34 36h6" />
+					<path d="M48 26v12M44 26h8" class="plug-loose" />
+					<path d="M14 16l36 36" class="slash" />
+				</svg>
+			</div>
+			<h2 id="offline-title">ESP32 not connected</h2>
+			<p id="offline-text">
+				Live data is on, but no readings have arrived from the ESP32. Check that it's plugged in and the ESP server is running.
+				Until it reconnects, temperature and humidity stay empty.
+			</p>
+			<div class="offline-actions">
+				<button type="button" class="offline-btn primary" id="offline-sample">Use sample data</button>
+				<button type="button" class="offline-btn" id="offline-retry">Retry now</button>
+				<a class="offline-btn" id="offline-sim" href="simulation.html" target="_blank" rel="noopener">Open simulation</a>
+				<button type="button" class="offline-btn ghost" id="offline-close">Dismiss</button>
+			</div>
+		</dialog>
+
 		<!-- CCTV lightbox (see cctv.js) -->
 		<dialog class="cctv" id="cctv-dialog" aria-labelledby="cctv-title">
 			<div class="cctv-panel">
@@ -594,6 +639,19 @@
 
 		<!-- Three.js (classic build so the page also works when opened straight from disk) -->
 		<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+		<!--
+			Live data: the Plant Check backend (Backend/app.py). The dashboard reads GET /api/sensor and GET /api/relay;
+			switching the fan / valve asks for the "Control password" (never stored in code).
+		-->
+		<script>
+			window.API_CONFIG = {
+				baseUrl: "https://api.putrinaqibah.com",
+				pollSeconds: 2,
+				defaultSource: "live", // "live" | "sample" | "simulation" (until someone picks one from the chip)
+			};
+		</script>
+		<script src="toast.js"></script>
+		<script src="api.js"></script>
 		<script src="plant.js"></script>
 		<script src="controls.js"></script>
 		<!--
@@ -634,5 +692,7 @@
 		<script src="cctv.js"></script>
 		<script src="updates.js"></script>
 		<script src="alert.js"></script>
+		<script src="sim-link.js"></script>
+		<script src="live-status.js"></script>
 	</body>
 </html>

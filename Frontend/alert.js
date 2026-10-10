@@ -185,11 +185,20 @@
 		health = e.detail.health;
 		render();
 	});
+	document.addEventListener("sensor:lost", () => {
+		reading = null;
+		render();
+	});
 	document.addEventListener("sensor:update", (e) => {
 		reading = e.detail;
 		render();
 	});
 	["device:fan", "device:irrigation"].forEach((name) => document.addEventListener(name, () => render()));
+	// A disease reported live (e.g. chosen on the simulation page) replaces the sample detection
+	document.addEventListener("plant:disease", (e) => {
+		disease = e.detail;
+		render();
+	});
 
 	fetch("data/disease-detections.json", { cache: "no-store" })
 		.then((res) => (res.ok ? res.json() : null))

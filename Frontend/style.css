@@ -212,6 +212,395 @@ svg {
   border-radius: var(--radius);
 }
 
+/* ----- Data source chip + "ESP32 not connected" modal ----- */
+.greeting-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.greeting-row .greeting {
+  margin-bottom: 0;
+}
+
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+.source-chip .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9CA3AF;
+}
+
+.source-chip[data-state="connecting"] {
+  border-color: #F6D58B;
+  background: #FFF8E6;
+  color: #8A5A00;
+}
+
+.source-chip[data-state="connecting"] .dot {
+  background: #E0A021;
+  animation: blink 1s ease-in-out infinite;
+}
+
+.source-chip[data-state="connected"] {
+  border-color: #CBEFD7;
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.source-chip[data-state="connected"] .dot {
+  background: var(--green);
+  animation: blink 1.8s ease-in-out infinite;
+}
+
+.source-chip[data-state="disconnected"] {
+  border-color: #F6C9BE;
+  background: #FFF1EE;
+  color: #B4432B;
+}
+
+.source-chip[data-state="disconnected"] .dot {
+  background: #C9573C;
+}
+
+.offline-modal {
+  width: min(440px, calc(100vw - 32px));
+  margin: auto;
+  padding: 28px 28px 24px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--bg);
+  color: var(--text);
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+}
+
+.offline-modal[open] {
+  animation: cctv-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.offline-modal::backdrop {
+  background: rgba(15, 17, 21, 0.45);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.offline-art {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: #FFF1EE;
+}
+
+.offline-art svg {
+  width: 52px;
+  height: 52px;
+  fill: none;
+  stroke: #B4432B;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.offline-art .plug-loose {
+  animation: plug-wiggle 2.4s ease-in-out infinite;
+}
+
+.offline-art .slash {
+  stroke-dasharray: 52;
+  stroke-dashoffset: 52;
+  animation: slash-draw 0.6s 0.2s ease-out forwards;
+}
+
+.offline-modal h2 {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.offline-modal p {
+  margin-top: 8px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.offline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.offline-btn {
+  padding: 9px 16px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.2s ease;
+}
+
+.offline-btn:hover {
+  border-color: var(--green);
+}
+
+.offline-btn:active {
+  transform: scale(0.96);
+}
+
+.offline-btn.primary {
+  border-color: var(--green);
+  background: var(--green);
+  color: #FFFFFF;
+}
+
+.offline-btn.ghost {
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.offline-btn:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+@keyframes plug-wiggle {
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(3px); }
+}
+
+@keyframes slash-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .offline-art .plug-loose,
+  .offline-modal[open] {
+    animation: none;
+  }
+
+  .offline-art .slash {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* source chip as a menu button */
+.source-menu {
+  position: relative;
+}
+
+button.source-chip {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.source-chip:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.source-chev {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.2s ease;
+}
+
+.source-chip[aria-expanded="true"] .source-chev {
+  transform: rotate(180deg);
+}
+
+.source-options {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 260px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+}
+
+.source-options[hidden] {
+  display: none;
+}
+
+.source-options button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 10px 8px 30px;
+  position: relative;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.source-options button:hover,
+.source-options button:focus-visible {
+  background: #F5F5F5;
+  outline: none;
+}
+
+.source-options button strong {
+  font-size: 13px;
+}
+
+.source-options button small {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.source-options button[aria-checked="true"]::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 13px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+/* ----- toasts ----- */
+.toast-region {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: min(380px, calc(100vw - 40px));
+  padding: 12px 12px 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--green);
+  border-radius: 14px;
+  background: var(--bg);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
+  color: var(--text);
+  pointer-events: auto;
+  animation: toast-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.toast.is-leaving {
+  animation: toast-out 0.25s ease forwards;
+}
+
+.toast-error { border-left-color: #C9573C; }
+.toast-info  { border-left-color: #39B8F0; }
+
+.toast-icon svg {
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.toast-success .toast-icon svg { stroke: var(--green-dark); }
+.toast-error .toast-icon svg   { stroke: #B4432B; }
+.toast-info .toast-icon svg    { stroke: #1F6FA8; }
+
+.toast p {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.toast-close {
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.toast-close:focus-visible {
+  outline: 2px solid var(--green);
+  border-radius: 4px;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes toast-out {
+  to { opacity: 0; transform: translateY(6px); }
+}
+
+/* watering limit in live mode */
+.irrigation-limit {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.irrigation-limit[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .toast.is-leaving {
+    animation: none;
+  }
+}
+
 /* ========== Plant status banner ========== */
 .plant-alert {
   --ink: #14532D;

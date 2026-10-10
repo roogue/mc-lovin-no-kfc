@@ -5,8 +5,16 @@
  * e.g. {"temperature": 31.2, "humidity": 74.5, "pressure": 1008.2}. It is polled every few seconds.
  * Without a URL, a demo feed drifts through Kuching-like readings so Automate has something to react to.
  *
- * Fires a 'sensor:update' event with { temperature, humidity, demo }.
- * Other code can push readings directly with PlantSensors.push({ temperature, humidity }).
+ * Data source (chosen from the source chip on the dashboard or the simulation page; remembered in localStorage):
+ *   'live'       – polls GET /api/sensor (and GET /api/relay) on the backend every API_CONFIG.pollSeconds.
+ *                  Uses the API's own "connected" flag; no reading / unreachable server → cards go empty.
+ *   'sample'     – the demo feed (or SENSOR_CONFIG.url); nothing from the backend or the simulation.
+ *   'simulation' – readings pushed from the simulation page (simulation.html) over BroadcastChannel only.
+ *
+ * Fires 'sensor:update' with { temperature, humidity, pressure?, demo },
+ * 'sensor:lost' when readings stop, 'sensor:source' with { mode, state, reason } whenever the source or
+ * connection changes (state: 'sample' | 'connecting' | 'connected' | 'disconnected';
+ * reason: 'no-data' | 'unreachable' | 'quiet'), and 'api:relay' with each polled relay state in live mode.
  */
 (function () {
   'use strict';
@@ -42,7 +50,7 @@
     return ((hi - 32) * 5) / 9;
   }
 
-  function push({ temperature, humidity, demo = false }) {
+  function push({ temperature, humidity, pressure, demo = false }) {
     const t = Number(temperature);
     const h = clamp(Number(humidity), 0, 100);
     if (!Number.isFinite(t) || !Number.isFinite(h)) return;
@@ -56,7 +64,9 @@
       els.humSub.textContent = `Dew point ${dewPoint(t, h).toFixed(1)}°C`;
     }
 
-    document.dispatchEvent(new CustomEvent('sensor:update', { detail: { temperature: t, humidity: h, demo } }));
+    const detail = { temperature: t, humidity: h, demo };
+    if (Number.isFinite(Number(pressure))) detail.pressure = Number(pressure);
+    document.dispatchEvent(new CustomEvent('sensor:update', { detail }));
   }
 
   // Demo feed: slow waves plus a little noise, crossing the Automate thresholds every couple of minutes
@@ -80,9 +90,148 @@
     }
   }
 
-  const tick = SOURCE_URL ? poll : () => push(demoReading());
-  tick();
-  setInterval(tick, INTERVAL_MS);
+  /* ---------- Data source + connection ---------- */
+  const SOURCE_KEY = 'plantcheck:data-source';
+  const MODES = ['sample', 'live', 'simulation'];
+  const API_CFG = window.API_CONFIG || {};
+  const DEFAULT_MODE = MODES.includes(API_CFG.defaultSource)
+    ? API_CFG.defaultSource
+    : window.PlantAPI && PlantAPI.configured ? 'live' : 'sample';
+  const SIM_TIMEOUT = 6000; // the simulated ESP32 sends every second
 
-  window.PlantSensors = { push };
+  const readMode = () => {
+    try {
+      const stored = localStorage.getItem(SOURCE_KEY);
+      return MODES.includes(stored) ? stored : DEFAULT_MODE;
+    } catch {
+      return DEFAULT_MODE;
+    }
+  };
+
+  let mode = readMode();
+  let modeSince = Date.now();
+  let lastSim = 0;
+  let state = null;
+  let reason = null;
+
+  function clearCards(message) {
+    if (els.tempValue) {
+      els.tempValue.textContent = '—';
+      els.tempSub.textContent = message;
+    }
+    if (els.humValue) {
+      els.humValue.textContent = '—';
+      els.humSub.textContent = message;
+    }
+  }
+
+  const LOST_TEXT = { 'no-data': 'ESP32 not connected', unreachable: "Can't reach the server", quiet: 'Simulation not running' };
+
+  function setState(next, why = null) {
+    if (next === state && why === reason) return;
+    const wasDisconnected = state === 'disconnected';
+    state = next;
+    reason = why;
+    if (next === 'connecting') clearCards(mode === 'live' ? 'Connecting to the server…' : 'Waiting for the simulation…');
+    if (next === 'disconnected') {
+      clearCards(LOST_TEXT[why] || 'Not connected');
+      if (!wasDisconnected) document.dispatchEvent(new CustomEvent('sensor:lost'));
+    }
+    document.dispatchEvent(new CustomEvent('sensor:source', { detail: { mode, state, reason } }));
+  }
+
+  // Live: ask the backend. The API decides "connected" (reading younger than 10 s); the browser's clock isn't used.
+  let polling = false;
+  async function pollLive() {
+    if (mode !== 'live' || polling || !window.PlantAPI) return;
+    polling = true;
+    const startedAt = Date.now();
+    const since = modeSince;
+    const [sensorRes, relayRes] = await Promise.allSettled([PlantAPI.getSensor(), PlantAPI.getRelay()]);
+    polling = false;
+    if (mode !== 'live' || since !== modeSince) return; // switched source while waiting
+
+    // Relays: the server is the source of truth for fan / valve in live mode
+    if (relayRes.status === 'fulfilled' && relayRes.value.ok && relayRes.value.data) {
+      document.dispatchEvent(new CustomEvent('api:relay', { detail: { ...relayRes.value.data, at: startedAt } }));
+    }
+
+    if (sensorRes.status !== 'fulfilled' || !sensorRes.value.ok) return setState('disconnected', 'unreachable');
+    const d = sensorRes.value.data || {};
+    if (d.connected === true && Number.isFinite(Number(d.temperature)) && Number.isFinite(Number(d.humidity))) {
+      setState('connected');
+      push({ temperature: d.temperature, humidity: d.humidity, pressure: d.pressure, demo: false });
+    } else {
+      setState('disconnected', 'no-data');
+    }
+  }
+
+  // Simulation: watch for the simulated ESP32 going quiet
+  function checkSim() {
+    if (mode !== 'simulation') return;
+    const quietFor = Date.now() - Math.max(lastSim, modeSince);
+    if (lastSim > modeSince && quietFor < SIM_TIMEOUT) setState('connected');
+    else if (quietFor < SIM_TIMEOUT) setState('connecting');
+    else setState('disconnected', 'quiet');
+  }
+
+  function enterMode() {
+    state = null;
+    reason = null;
+    if (mode === 'sample') {
+      setState('sample');
+      tick();
+    } else if (mode === 'live') {
+      setState('connecting');
+      pollLive();
+    } else {
+      checkSim();
+    }
+  }
+
+  function setMode(next, { save = true } = {}) {
+    if (!MODES.includes(next) || next === mode) return;
+    mode = next;
+    modeSince = Date.now();
+    if (save) {
+      try {
+        localStorage.setItem(SOURCE_KEY, mode);
+      } catch { /* private mode: still switch for this page */ }
+    }
+    enterMode();
+  }
+
+  // Another tab (e.g. the simulation page) changed the setting
+  window.addEventListener('storage', (e) => {
+    if (e.key === SOURCE_KEY) setMode(e.newValue, { save: false });
+  });
+
+  // Sample mode: the demo feed (or SENSOR_CONFIG.url) every few seconds
+  const tick = () => {
+    if (mode !== 'sample') return;
+    if (SOURCE_URL) poll();
+    else push(demoReading());
+  };
+
+  enterMode();
+  setInterval(tick, INTERVAL_MS);
+  setInterval(pollLive, window.PlantAPI ? PlantAPI.pollMs : 2000);
+  setInterval(checkSim, 1000);
+
+  window.PlantSensors = {
+    push,
+    // Readings from the simulation page; ignored unless the simulation is the chosen source
+    pushExternal(reading) {
+      if (mode !== 'simulation') return;
+      lastSim = Date.now();
+      checkSim();
+      push({ ...reading, demo: false });
+    },
+    setMode,
+    retry: pollLive,
+    modes: MODES,
+    get mode() { return mode; },
+    get state() { return state; },
+    get reason() { return reason; },
+  };
 })();

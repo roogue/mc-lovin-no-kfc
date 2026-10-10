@@ -1,8 +1,13 @@
 /*
  * Device controls: Automate mode, fan toggle and irrigation countdown timer.
- * Hook your backend calls into onFanChange / onIrrigationStart / onIrrigationStop.
- * Also fires 'device:fan' and 'device:irrigation' events so the plant scene can react,
- * and listens for 'sensor:update' (from sensors.js) to drive Automate mode.
+ *
+ * Live mode (data source 'live'): every change goes to the backend through onFanChange / onIrrigationStart /
+ * onIrrigationStop (POST /api/relay, see api.js), and the server is the source of truth: the polled relay state
+ * ('api:relay') sets the fan and drives the watering countdown from valve_remaining. Failed commands are undone.
+ * Sample / simulation modes: everything stays local, as before.
+ *
+ * Fires 'device:fan' and 'device:irrigation' so the plant scene can react, and listens for 'sensor:update'
+ * (from sensors.js) to drive Automate mode.
  */
 (function () {
   'use strict';
@@ -15,14 +20,45 @@
     waterMinutes: 1,
     waterCooldownMinutes: 30,                       // at most one automatic watering per 30 minutes
   };
-
-  /* ---------------- Backend hooks (replace with real API calls) ---------------- */
-  function onFanChange(isOn) { /* e.g. fetch('/api/fan', { method: 'POST', body: JSON.stringify({ on: isOn }) }) */ }
-  function onIrrigationStart(seconds) { /* e.g. fetch('/api/irrigation/start', { ... }) */ }
-  function onIrrigationStop(finished) { /* e.g. fetch('/api/irrigation/stop', { ... }) */ }
+  const LIVE_MAX_MINUTES = 10; // the server caps one watering at 600 s
+  const LOCAL_MAX_MINUTES = 120;
 
   const emit = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
   const clock = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const toast = (message, kind = 'error') => window.PlantToast && PlantToast(message, kind);
+  const isLive = () => !!(window.PlantAPI && window.PlantSensors && PlantSensors.mode === 'live');
+
+  /* ---------------- Backend hooks: POST /api/relay in live mode, local only otherwise ---------------- */
+  let lastCommandAt = 0; // polled relay states that started before our latest command are ignored
+
+  // auto: sent by Automate (never prompts; a password problem turns Automate off)
+  // quiet: no prompt and no error message (e.g. telling the server a watering it already ended is over)
+  // revert: undoes the optimistic UI change when the command fails
+  async function remote(body, { auto = false, quiet = false, revert } = {}) {
+    if (!isLive()) return true;
+    if (quiet && !PlantAPI.hasKey()) return true;
+    lastCommandAt = Date.now();
+    try {
+      await PlantAPI.setRelay(body, { prompt: !auto && !quiet });
+      return true;
+    } catch (err) {
+      if (quiet) return false;
+      if (revert) revert();
+      if (auto && (err.code === 'unauthorized' || err.code === 'no-key')) {
+        setAuto(false);
+        toast(`${err.message} Automate has been turned off.`);
+      } else {
+        toast(err.message);
+      }
+      return false;
+    } finally {
+      lastCommandAt = Date.now();
+    }
+  }
+
+  function onFanChange(isOn, opts) { return remote({ fan: isOn }, opts); }
+  function onIrrigationStart(seconds, opts) { return remote({ valve: true, seconds }, opts); }
+  function onIrrigationStop(finished, opts) { return remote({ valve: false }, opts); } // safe even if the server already finished
 
   let autoOn = false;
 
@@ -38,12 +74,18 @@
     fanStatus.textContent = `${fanOn ? 'On · Cooling' : 'Off'}${autoOn ? ' · Auto' : ''}`;
   }
 
-  function setFan(on) {
+  // Show a fan state without sending anything (used for server updates and reverts)
+  function applyFan(on) {
     if (on === fanOn) return;
     fanOn = on;
     renderFan();
-    onFanChange(on);
     emit('device:fan', { on });
+  }
+
+  function setFan(on, { auto = false } = {}) {
+    if (on === fanOn) return;
+    applyFan(on);
+    onFanChange(on, { auto, revert: () => applyFan(!on) });
   }
 
   fanToggle.addEventListener('click', () => {
@@ -60,6 +102,7 @@
   const customForm = document.getElementById('custom-form');
   const customInput = document.getElementById('custom-minutes');
   const stopButton = document.getElementById('irrigation-stop');
+  const limitNote = document.getElementById('irrigation-limit');
 
   const CIRCUMFERENCE = 2 * Math.PI * 52;
   progress.style.strokeDasharray = String(CIRCUMFERENCE);
@@ -71,6 +114,7 @@
   let doneTimeout = null;
 
   const isWatering = () => tick !== null;
+  const maxMinutes = () => (isLive() ? LIVE_MAX_MINUTES : LOCAL_MAX_MINUTES);
   const idleMessage = () => (autoOn ? 'Automate will water when it gets hot' : 'Pick a duration to start');
 
   const format = (secs) => {
@@ -88,6 +132,14 @@
     if (locked) hideCustom();
   }
 
+  // In live mode one watering is limited to what the server allows, and the limit is shown
+  function renderLimits() {
+    const max = maxMinutes();
+    customInput.max = String(max);
+    customInput.placeholder = `1–${max} min`;
+    if (limitNote) limitNote.hidden = !isLive();
+  }
+
   function setRunning(running) {
     irrigation.classList.toggle('is-running', running);
     stopButton.hidden = !running;
@@ -102,43 +154,83 @@
     if (remaining <= 0) finish(true);
   }
 
-  function start(minutes, label) {
+  function markActive(minutes) {
+    presetButtons.forEach((b) => b.classList.toggle('active', Number(b.dataset.minutes) === minutes));
+    customButton.classList.toggle('active', minutes !== null && !Array.from(presetButtons).some((b) => Number(b.dataset.minutes) === minutes));
+  }
+
+  // Start the countdown on screen only (no command)
+  function startLocal(seconds, statusText, minutes = null) {
     clearInterval(tick);
     clearTimeout(doneTimeout);
     irrigation.classList.remove('is-done');
-    total = Math.round(minutes * 60);
+    total = Math.max(1, Math.round(seconds));
     endTime = Date.now() + total * 1000;
-    statusEl.textContent = `Watering for ${label}…`;
-    presetButtons.forEach((b) => b.classList.toggle('active', Number(b.dataset.minutes) === minutes));
-    customButton.classList.toggle('active', !Array.from(presetButtons).some((b) => Number(b.dataset.minutes) === minutes));
+    statusEl.textContent = statusText;
+    markActive(minutes);
     tick = setInterval(render, 250);
     setRunning(true);
     render();
-    onIrrigationStart(total);
     emit('device:irrigation', { running: true, seconds: total });
   }
 
-  function finish(completed) {
+  // End the countdown on screen only. how: 'completed' | 'stopped' | 'reverted'
+  function stopLocal(how) {
     clearInterval(tick);
     tick = null;
     setRunning(false);
-    presetButtons.forEach((b) => b.classList.remove('active'));
-    customButton.classList.remove('active');
+    markActive(null);
     timerText.textContent = '00:00';
     progress.style.strokeDashoffset = String(CIRCUMFERENCE);
-    onIrrigationStop(completed);
-    emit('device:irrigation', { running: false, completed });
+    emit('device:irrigation', { running: false, completed: how === 'completed' });
 
-    if (completed) {
+    if (how === 'completed') {
       irrigation.classList.add('is-done');
       statusEl.textContent = 'Done! Plant watered 💧';
       doneTimeout = setTimeout(() => {
         irrigation.classList.remove('is-done');
         statusEl.textContent = idleMessage();
       }, 4000);
-    } else {
+    } else if (how === 'stopped') {
       statusEl.textContent = autoOn ? 'Stopped' : 'Stopped. Pick a duration to start';
+    } else {
+      statusEl.textContent = idleMessage();
     }
+  }
+
+  function start(minutes, label, { auto = false } = {}) {
+    minutes = Math.min(minutes, maxMinutes());
+    startLocal(minutes * 60, `Watering for ${label}…`, minutes);
+    onIrrigationStart(total, { auto, revert: () => stopLocal('reverted') });
+  }
+
+  function finish(completed) {
+    if (completed) {
+      stopLocal('completed');
+      onIrrigationStop(true, { quiet: true }); // the server ends it on its own; this just makes sure
+      return;
+    }
+    const remaining = (endTime - Date.now()) / 1000;
+    const before = total;
+    stopLocal('stopped');
+    onIrrigationStop(false, {
+      revert: () => {
+        if (remaining > 0) {
+          startLocal(remaining, 'Still watering (the stop didn’t go through)');
+          total = before;
+        }
+      },
+    });
+  }
+
+  // Live mode: follow the server's valve (also shows a watering started on another screen or before a reload)
+  function syncWatering(remaining) {
+    if (!isWatering()) {
+      startLocal(remaining, 'Watering… (synced with the server)');
+      return;
+    }
+    endTime = Date.now() + remaining * 1000;
+    if (remaining > total) total = Math.round(remaining);
   }
 
   function hideCustom() {
@@ -162,9 +254,10 @@
 
   customForm.addEventListener('submit', (e) => {
     e.preventDefault();
+    const max = maxMinutes();
     const m = Math.round(Number(customInput.value));
-    if (!Number.isFinite(m) || m < 1 || m > 120) {
-      customInput.setCustomValidity('Enter 1 to 120 minutes');
+    if (!Number.isFinite(m) || m < 1 || m > max) {
+      customInput.setCustomValidity(isLive() ? `Enter 1 to ${max} minutes (the server's limit in live mode)` : `Enter 1 to ${max} minutes`);
       customInput.reportValidity();
       return;
     }
@@ -186,6 +279,7 @@
 
   let latest = null;
   let lastAutoWater = -Infinity;
+  let desiredFan = null; // what Automate last decided; a command is only sent when this changes
 
   autoRules.textContent =
     `Fan on at ${AUTO_RULES.fanOnAt.temperature}°C or ${AUTO_RULES.fanOnAt.humidity}% humidity · ` +
@@ -211,29 +305,65 @@
 
     const hot = t >= R.fanOnAt.temperature;
     const humid = h >= R.fanOnAt.humidity;
-    if (!fanOn && (hot || humid)) {
-      setFan(true);
-      log(`Fan on (${hot ? `${t.toFixed(1)}°C` : `${Math.round(h)}% humidity`})`);
-    } else if (fanOn && t < R.fanOffBelow.temperature && h < R.fanOffBelow.humidity) {
-      setFan(false);
-      log('Fan off (back to normal)');
+    let desired = desiredFan;
+    if (hot || humid) desired = true;
+    else if (t < R.fanOffBelow.temperature && h < R.fanOffBelow.humidity) desired = false;
+    else if (desired === null) desired = fanOn; // in the gap between the thresholds: leave it as it is
+
+    if (desired !== desiredFan) {
+      desiredFan = desired;
+      if (desired !== fanOn) {
+        setFan(desired, { auto: true });
+        log(desired ? `Fan on (${hot ? `${t.toFixed(1)}°C` : `${Math.round(h)}% humidity`})` : 'Fan off (back to normal)');
+      }
     }
 
     const cooledDown = Date.now() - lastAutoWater >= R.waterCooldownMinutes * 60 * 1000;
     if (t >= R.waterAt.temperature && !isWatering() && cooledDown) {
       lastAutoWater = Date.now();
-      start(R.waterMinutes, `${R.waterMinutes} min (auto)`);
+      start(R.waterMinutes, `${R.waterMinutes} min (auto)`, { auto: true });
       log(`Watering (${t.toFixed(1)}°C)`);
     }
   }
 
-  autoToggle.addEventListener('click', () => {
-    autoOn = !autoOn;
+  function setAuto(on) {
+    if (on && isLive() && !PlantAPI.hasKey() && !PlantAPI.askKey()) {
+      toast('Automate needs the control password in live mode.');
+      return;
+    }
+    autoOn = on;
+    desiredFan = null;
     if (!isWatering() && !irrigation.classList.contains('is-done')) statusEl.textContent = idleMessage();
     updateLocks();
     renderFan();
     renderAuto();
     if (autoOn) applyRules();
+  }
+
+  autoToggle.addEventListener('click', () => setAuto(!autoOn));
+
+  /* ---------------- Live mode: the server's relay state ---------------- */
+  document.addEventListener('api:relay', (e) => {
+    if (!isLive()) return;
+    const d = e.detail || {};
+    if ((d.at || 0) < lastCommandAt) return; // fetched before our latest command; the next poll is fresher
+    if (typeof d.fan === 'boolean') applyFan(d.fan);
+    if (d.valve === true && d.valve_remaining > 0) syncWatering(d.valve_remaining);
+    else if (d.valve === false && isWatering()) stopLocal(endTime - Date.now() < 3000 ? 'completed' : 'stopped');
+  });
+
+  document.addEventListener('sensor:source', () => {
+    renderLimits();
+    if (autoOn && isLive() && !PlantAPI.hasKey()) {
+      setAuto(false);
+      toast('Automate was turned off: live mode needs the control password. Switch it on again to enter it.', 'info');
+    }
+  });
+
+  // No readings: stop acting on stale numbers
+  document.addEventListener('sensor:lost', () => {
+    latest = null;
+    renderAuto();
   });
 
   document.addEventListener('sensor:update', (e) => {
@@ -246,6 +376,7 @@
 
   renderFan();
   renderAuto();
+  renderLimits();
 
   // Lets other parts of the page (e.g. the status banner's buttons) act on the devices
   window.PlantControls = {
