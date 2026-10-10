@@ -19,8 +19,8 @@ DEFAULT_VALVE_SECONDS = 60
 MAX_VALVE_SECONDS = 600
 
 DEEPSEEK_API_KEY = "sk-de105445e21f463a8ae733d50e94e35a"
-DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-flash")
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+DEEPSEEK_MODEL = "deepseek-flash"
 SCAN_MIMES = {"image/jpeg", "image/png", "image/webp"}
 MAX_SCAN_BYTES = 8 * 1024 * 1024
 
