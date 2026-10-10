@@ -1,0 +1,12 @@
+{
+  "location": "Kuching Waterfront, Sarawak",
+  "generatedAt": "2026-10-10T08:00:00+08:00",
+  "detections": [
+    { "date": "2026-10-08", "disease": "Powdery Mildew",      "severity": "medium", "confidence": 91, "status": "resolved" },
+    { "date": "2026-10-07", "disease": "Powdery Mildew",      "severity": "medium", "confidence": 87, "status": "resolved" },
+    { "date": "2026-10-05", "disease": "Leaf Blight",         "severity": "high",   "confidence": 84, "status": "resolved" },
+    { "date": "2026-10-04", "disease": "Leaf Blight",         "severity": "high",   "confidence": 93, "status": "resolved" },
+    { "date": "2026-10-03", "disease": "Leaf Blight",         "severity": "high",   "confidence": 78, "status": "resolved" },
+    { "date": "2026-09-29", "disease": "Nutrient Deficiency", "severity": "medium", "confidence": 72, "status": "resolved" }
+  ]
+}

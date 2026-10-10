@@ -1,17 +1,34 @@
-// Latest updates table on the overview page.
-// Loads daily rollups from data/daily-updates.json (sample data in public/data/) and shows the newest 7 days.
-// Point DATA_URL at the backend's endpoint once real daily data is available; it just needs the same "days" shape.
+// Daily rollups: shared loader + table rows (window.PlantDaily), and the Latest updates table on the overview page.
+// Loads data/daily-updates.json (sample data in public/data/). Point DATA_URL at the backend's endpoint once
+// real daily data is available; it just needs the same "days" shape.
 // Field names match the monthly reports in report.js where they overlap.
 
-const DATA_URL = "data/daily-updates.json";
-const DAYS_SHOWN = 7;
-const CONDITION_LABEL = { healthy: "Healthy", sick: "Sick", withered: "Withered" };
-
-(function () {
-	const body = document.getElementById("updates-body");
-	if (!body) return;
-
+window.PlantDaily = (function () {
+	const DATA_URL = "data/daily-updates.json";
+	const CONDITION_LABEL = { healthy: "Healthy", sick: "Sick", withered: "Withered" };
 	const COLUMNS = 8;
+	let request = null;
+
+	// Resolves to every day in the file, newest first
+	function load() {
+		if (!request) {
+			request = fetch(DATA_URL, { cache: "no-store" })
+				.then((res) => {
+					if (!res.ok) throw new Error(`HTTP ${res.status}`);
+					return res.json();
+				})
+				.then((data) => {
+					const days = Array.isArray(data.days) ? data.days.slice() : [];
+					return days.sort((a, b) => b.date.localeCompare(a.date)); // ISO dates sort as text
+				})
+				.catch((err) => {
+					request = null; // allow a retry
+					throw err;
+				});
+		}
+		return request;
+	}
+
 	const today = new Date();
 	const isSameDay = (a, b) =>
 		a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -27,15 +44,6 @@ const CONDITION_LABEL = { healthy: "Healthy", sick: "Sick", withered: "Withered"
 		if (className) td.className = className;
 		td.textContent = text;
 		return td;
-	}
-
-	// A single full-width row for loading / error messages
-	function showMessage(text) {
-		const tr = document.createElement("tr");
-		const td = cell(text, "updates-message");
-		td.colSpan = COLUMNS;
-		tr.appendChild(td);
-		body.replaceChildren(tr);
 	}
 
 	function row(u) {
@@ -66,28 +74,38 @@ const CONDITION_LABEL = { healthy: "Healthy", sick: "Sick", withered: "Withered"
 		return tr;
 	}
 
-	async function load() {
-		showMessage("Loading latest updates…");
-		try {
-			const res = await fetch(DATA_URL, { cache: "no-store" });
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const data = await res.json();
-			const days = Array.isArray(data.days) ? data.days.slice() : [];
-			if (!days.length) {
-				showMessage("No updates yet.");
-				return;
-			}
-			days.sort((a, b) => b.date.localeCompare(a.date)); // newest first (ISO dates sort as text)
-			body.replaceChildren(...days.slice(0, DAYS_SHOWN).map(row));
-		} catch (err) {
-			console.warn("Could not load latest updates:", err);
-			showMessage(
-				location.protocol === "file:"
-					? "Couldn't load the data. Run npm run dev and open the site from localhost."
-					: "Couldn't load the latest updates.",
-			);
-		}
+	// A single full-width row for loading / error messages
+	function showMessage(body, text) {
+		const tr = document.createElement("tr");
+		const td = cell(text, "updates-message");
+		td.colSpan = COLUMNS;
+		tr.appendChild(td);
+		body.replaceChildren(tr);
 	}
 
-	load();
+	function errorMessage() {
+		return location.protocol === "file:"
+			? "Couldn't load the data. Run npm run dev and open the site from localhost."
+			: "Couldn't load the data.";
+	}
+
+	return { load, row, formatDate, showMessage, errorMessage, CONDITION_LABEL };
+})();
+
+// Latest updates table (overview page): the newest 7 days
+(function () {
+	const DAYS_SHOWN = 7;
+	const body = document.getElementById("updates-body");
+	if (!body) return;
+
+	PlantDaily.showMessage(body, "Loading latest updates…");
+	PlantDaily.load()
+		.then((days) => {
+			if (!days.length) return PlantDaily.showMessage(body, "No updates yet.");
+			body.replaceChildren(...days.slice(0, DAYS_SHOWN).map(PlantDaily.row));
+		})
+		.catch((err) => {
+			console.warn("Could not load latest updates:", err);
+			PlantDaily.showMessage(body, PlantDaily.errorMessage());
+		});
 })();
