@@ -1,304 +1,427 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Plant Check — Dashboard</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Plant Check — Dashboard</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+			rel="stylesheet" />
+		<link rel="stylesheet" href="style.css" />
+	</head>
+	<body>
+		<!-- Hidden checkbox that drives the collapsible sidebar (pure CSS, no JS) -->
+		<input
+			type="checkbox"
+			id="nav-toggle"
+			class="nav-toggle"
+			aria-label="Toggle sidebar" />
 
-  <!-- Hidden checkbox that drives the collapsible sidebar (pure CSS, no JS) -->
-  <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Toggle sidebar">
+		<div class="app">
+			<!-- ========== SIDEBAR ========== -->
+			<aside class="sidebar">
+				<div class="sidebar-header">
+					<a href="#" class="logo">
+						<svg class="logo-icon" viewBox="0 0 40 40" aria-hidden="true">
+							<path
+								d="M20 20 C 14 21, 6 18, 4 10 C 11 8, 18 12, 20 20 Z"
+								fill="#4CD179" />
+							<path
+								d="M20 20 C 26 21, 34 18, 36 10 C 29 8, 22 12, 20 20 Z"
+								fill="#7FDC9C" />
+							<line
+								x1="20"
+								y1="19"
+								x2="20"
+								y2="26"
+								stroke="#4CD179"
+								stroke-width="2" />
+							<rect x="10" y="25" width="20" height="4" rx="1" fill="#F48A5C" />
+							<path d="M12 30 H28 L26 37 H14 Z" fill="#F9A47D" />
+						</svg>
+						<span class="logo-text">Plant<br />Check</span>
+					</a>
 
-  <div class="app">
+					<label
+						for="nav-toggle"
+						class="toggle-btn"
+						title="Collapse / expand sidebar">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M15 6l-6 6 6 6" />
+						</svg>
+					</label>
+				</div>
 
-    <!-- ========== SIDEBAR ========== -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <a href="#" class="logo">
-          <svg class="logo-icon" viewBox="0 0 40 40" aria-hidden="true">
-            <path d="M20 20 C 14 21, 6 18, 4 10 C 11 8, 18 12, 20 20 Z" fill="#4CD179"/>
-            <path d="M20 20 C 26 21, 34 18, 36 10 C 29 8, 22 12, 20 20 Z" fill="#7FDC9C"/>
-            <line x1="20" y1="19" x2="20" y2="26" stroke="#4CD179" stroke-width="2"/>
-            <rect x="10" y="25" width="20" height="4" rx="1" fill="#F48A5C"/>
-            <path d="M12 30 H28 L26 37 H14 Z" fill="#F9A47D"/>
-          </svg>
-          <span class="logo-text">Plant<br>Check</span>
-        </a>
+				<nav class="nav">
+					<a href="#" class="nav-item active" title="Overview">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<rect x="3" y="3" width="7" height="7" rx="1.5" />
+							<rect x="14" y="3" width="7" height="7" rx="1.5" />
+							<rect x="3" y="14" width="7" height="7" rx="1.5" />
+							<rect x="14" y="14" width="7" height="7" rx="1.5" />
+						</svg>
+						<span class="nav-label">Overview</span>
+					</a>
+					<a href="#" class="nav-item" title="Disease">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M5 19c0-8 6-14 15-14 0 9-6 15-14 15" />
+							<path d="M5 19l7-7" />
+							<circle cx="14" cy="10" r="1" />
+						</svg>
+						<span class="nav-label">Disease</span>
+					</a>
+					<a href="#" class="nav-item" title="Monitoring History">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M3 12a9 9 0 1 0 3-6.7" />
+							<path d="M3 4v4h4" />
+							<path d="M12 7v5l3 2" />
+						</svg>
+						<span class="nav-label">Monitoring History</span>
+					</a>
+					<a href="#" class="nav-item" title="Report">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path
+								d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+							<path d="M14 3v6h6" />
+							<path d="M8 13h8M8 17h5" />
+						</svg>
+						<span class="nav-label">Report</span>
+					</a>
+				</nav>
+			</aside>
 
-        <label for="nav-toggle" class="toggle-btn" title="Collapse / expand sidebar">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
-        </label>
-      </div>
+			<!-- ========== MAIN CONTENT ========== -->
+			<main class="main">
+				<h1 class="greeting">Hello Admin!</h1>
 
-      <nav class="nav">
-        <a href="#" class="nav-item active" title="Overview">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-            <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-            <rect x="3" y="14" width="7" height="7" rx="1.5"/>
-            <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-          </svg>
-          <span class="nav-label">Overview</span>
-        </a>
-        <a href="#" class="nav-item" title="Disease">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M5 19c0-8 6-14 15-14 0 9-6 15-14 15"/>
-            <path d="M5 19l7-7"/>
-            <circle cx="14" cy="10" r="1"/>
-          </svg>
-          <span class="nav-label">Disease</span>
-        </a>
-        <a href="#" class="nav-item" title="Monitoring History">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M3 12a9 9 0 1 0 3-6.7"/>
-            <path d="M3 4v4h4"/>
-            <path d="M12 7v5l3 2"/>
-          </svg>
-          <span class="nav-label">Monitoring History</span>
-        </a>
-        <a href="#" class="nav-item" title="Report">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
-            <path d="M14 3v6h6"/>
-            <path d="M8 13h8M8 17h5"/>
-          </svg>
-          <span class="nav-label">Report</span>
-        </a>
-      </nav>
-    </aside>
+				<!-- Stat cards -->
+				<section class="cards">
+					<article class="card stat-card temperature">
+						<div class="stat-label">
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z" />
+							</svg>
+							Temperature
+						</div>
+						<div class="stat-value">30°C</div>
+						<div class="stat-sub">Feels like 33.9°C</div>
+					</article>
 
-    <!-- ========== MAIN CONTENT ========== -->
-    <main class="main">
-      <h1 class="greeting">Hello Admin!</h1>
+					<article class="card stat-card humidity">
+						<div class="stat-label">
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z" />
+							</svg>
+							Humidity
+						</div>
+						<div class="stat-value">40%</div>
+						<div class="stat-sub">Dew point 15°C</div>
+					</article>
 
-      <!-- Stat cards -->
-      <section class="cards">
-        <article class="card stat-card temperature">
-          <div class="stat-label">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z"/></svg>
-            Temperature
-          </div>
-          <div class="stat-value">30°C</div>
-          <div class="stat-sub">Feels like 33.9°C</div>
-        </article>
+					<article class="card stat-card precipitation">
+						<div class="stat-label">
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path
+									d="M7 15a4 4 0 0 1-.5-8A5.5 5.5 0 0 1 17 8a3.5 3.5 0 0 1 0 7z" />
+								<path d="M8 18l-1 2M12 18l-1 2M16 18l-1 2" />
+							</svg>
+							Precipitation
+						</div>
+						<div class="stat-value">12%</div>
+						<div class="stat-sub">Chance of rain today</div>
+					</article>
 
-        <article class="card stat-card humidity">
-          <div class="stat-label">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>
-            Humidity
-          </div>
-          <div class="stat-value">40%</div>
-          <div class="stat-sub">Dew point 15°C</div>
-        </article>
+					<article class="card stat-card weather">
+						<div class="stat-label">
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<circle cx="12" cy="12" r="4" />
+								<path
+									d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+							</svg>
+							Weather
+						</div>
+						<div class="weather-location" id="weather-location">
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path
+									d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
+								<circle cx="12" cy="9.5" r="2.5" />
+							</svg>
+							<span id="weather-location-text">Locating…</span>
+						</div>
+						<div class="weather-body">
+							<span class="weather-icon" id="weather-icon"></span>
+							<div class="weather-text" id="weather-text">Partly Cloudy</div>
+						</div>
+						<div class="stat-sub" id="weather-sub">Wind 12 km/h</div>
+					</article>
+				</section>
 
-        <article class="card stat-card precipitation">
-          <div class="stat-label">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M7 15a4 4 0 0 1-.5-8A5.5 5.5 0 0 1 17 8a3.5 3.5 0 0 1 0 7z"/>
-              <path d="M8 18l-1 2M12 18l-1 2M16 18l-1 2"/>
-            </svg>
-            Precipitation
-          </div>
-          <div class="stat-value">12%</div>
-          <div class="stat-sub">Chance of rain today</div>
-        </article>
+				<!-- Plant condition + graph -->
+				<section class="lower">
+					<article
+						class="card panel plant-card"
+						data-state="healthy"
+						data-sky="day">
+						<!-- Three.js park scene renders into this box (see plant.js) -->
+						<div class="plant-scene" id="plant-scene" aria-hidden="true"></div>
 
-        <article class="card stat-card weather">
-          <div class="stat-label">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="4"/>
-              <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
-            </svg>
-            Weather
-          </div>
-          <div class="weather-location" id="weather-location">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
-            <span id="weather-location-text">Locating…</span>
-          </div>
-          <div class="weather-body">
-            <span class="weather-icon" id="weather-icon"></span>
-            <div class="weather-text" id="weather-text">Partly Cloudy</div>
-          </div>
-          <div class="stat-sub" id="weather-sub">Wind 12 km/h</div>
-        </article>
-      </section>
+						<div class="plant-top">
+							<h2 class="plant-title glass">Plant Condition</h2>
+							<span class="time-chip glass" id="time-chip">☀️ Day</span>
+							<div
+								class="effect-chips"
+								id="effect-chips"
+								aria-live="polite"></div>
+						</div>
 
-      <!-- Plant condition + graph -->
-      <section class="lower">
-        <article class="card panel plant-card" data-state="healthy" data-sky="day">
-          <!-- Three.js park scene renders into this box (see plant.js) -->
-          <div class="plant-scene" id="plant-scene" aria-hidden="true"></div>
+						<div class="plant-bottom">
+							<div
+								class="status-card glass"
+								id="status-card"
+								role="status"
+								aria-live="polite">
+								<span class="status-emoji" id="status-emoji" aria-hidden="true"
+									>🌱</span
+								>
+								<div class="status-text">
+									<strong id="status-title">Thriving!</strong>
+									<span id="status-msg">Happy leaves, happy life.</span>
+								</div>
+								<span class="health-value" id="health-value">92%</span>
+								<div class="health-bar" aria-hidden="true">
+									<span id="health-fill"></span>
+								</div>
+							</div>
 
-          <div class="plant-top">
-            <h2 class="plant-title glass">Plant Condition</h2>
-            <span class="time-chip glass" id="time-chip">☀️ Day</span>
-            <div class="effect-chips" id="effect-chips" aria-live="polite"></div>
-          </div>
+							<div
+								class="state-switch glass"
+								role="group"
+								aria-label="Preview plant state">
+								<button type="button" data-state="healthy" aria-pressed="true">
+									Healthy
+								</button>
+								<button type="button" data-state="sick" aria-pressed="false">
+									Sick
+								</button>
+								<button
+									type="button"
+									data-state="withered"
+									aria-pressed="false">
+									Withered
+								</button>
+							</div>
+						</div>
+					</article>
 
-          <div class="plant-bottom">
-            <div class="status-card glass" id="status-card" role="status" aria-live="polite">
-              <span class="status-emoji" id="status-emoji" aria-hidden="true">🌱</span>
-              <div class="status-text">
-                <strong id="status-title">Thriving!</strong>
-                <span id="status-msg">Happy leaves, happy life.</span>
-              </div>
-              <span class="health-value" id="health-value">92%</span>
-              <div class="health-bar" aria-hidden="true"><span id="health-fill"></span></div>
-            </div>
+					<article class="card panel chart-card">
+						<div class="chart-header">
+							<div>
+								<h2 class="panel-title">Temperature</h2>
+								<p class="chart-sub">Daily average, °C</p>
+							</div>
+							<span class="chip">Last 7 days</span>
+						</div>
 
-            <div class="state-switch glass" role="group" aria-label="Preview plant state">
-              <button type="button" data-state="healthy" aria-pressed="true">Healthy</button>
-              <button type="button" data-state="sick" aria-pressed="false">Sick</button>
-              <button type="button" data-state="withered" aria-pressed="false">Withered</button>
-            </div>
-          </div>
-        </article>
+						<div class="chart-stats">
+							<div><span>Min</span><strong>28°C</strong></div>
+							<div><span>Avg</span><strong>30.3°C</strong></div>
+							<div><span>Max</span><strong>32°C</strong></div>
+						</div>
 
-        <article class="card panel chart-card">
-          <div class="chart-header">
-            <div>
-              <h2 class="panel-title">Temperature</h2>
-              <p class="chart-sub">Daily average, °C</p>
-            </div>
-            <span class="chip">Last 7 days</span>
-          </div>
+						<svg
+							class="chart"
+							viewBox="0 0 600 256"
+							role="img"
+							aria-label="Line chart of daily average temperature over the last 7 days, ranging from 28 to 32 degrees Celsius">
+							<defs>
+								<linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+									<stop offset="0" stop-color="#FF9E9F" stop-opacity="0.35" />
+									<stop offset="1" stop-color="#A3B4FF" stop-opacity="0" />
+								</linearGradient>
+								<linearGradient
+									id="stroke"
+									gradientUnits="userSpaceOnUse"
+									x1="44"
+									y1="0"
+									x2="584"
+									y2="0">
+									<stop offset="0" stop-color="#F5888B" />
+									<stop offset="1" stop-color="#8496F2" />
+								</linearGradient>
+							</defs>
 
-          <div class="chart-stats">
-            <div><span>Min</span><strong>28°C</strong></div>
-            <div><span>Avg</span><strong>30.3°C</strong></div>
-            <div><span>Max</span><strong>32°C</strong></div>
-          </div>
+							<!-- grid + y labels (24–36 °C) -->
+							<g class="grid">
+								<line x1="44" y1="20" x2="584" y2="20" />
+								<line x1="44" y1="70" x2="584" y2="70" />
+								<line x1="44" y1="120" x2="584" y2="120" />
+								<line x1="44" y1="170" x2="584" y2="170" />
+								<line x1="44" y1="220" x2="584" y2="220" />
+							</g>
+							<g class="axis-label" text-anchor="end">
+								<text x="34" y="24">36</text>
+								<text x="34" y="74">33</text>
+								<text x="34" y="124">30</text>
+								<text x="34" y="174">27</text>
+								<text x="34" y="224">24</text>
+							</g>
 
-          <svg class="chart" viewBox="0 0 600 256" role="img" aria-label="Line chart of daily average temperature over the last 7 days, ranging from 28 to 32 degrees Celsius">
-            <defs>
-              <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#FF9E9F" stop-opacity="0.35"/>
-                <stop offset="1" stop-color="#A3B4FF" stop-opacity="0"/>
-              </linearGradient>
-              <linearGradient id="stroke" gradientUnits="userSpaceOnUse" x1="44" y1="0" x2="584" y2="0">
-                <stop offset="0" stop-color="#F5888B"/>
-                <stop offset="1" stop-color="#8496F2"/>
-              </linearGradient>
-            </defs>
+							<!-- data: 28, 29.5, 31, 30, 32, 31.5, 30 -->
+							<path
+								d="M44 153.3 L134 128.3 L224 103.3 L314 120 L404 86.7 L494 95 L584 120 L584 220 L44 220 Z"
+								fill="url(#area)" />
+							<polyline
+								points="44,153.3 134,128.3 224,103.3 314,120 404,86.7 494,95 584,120"
+								fill="none"
+								stroke="url(#stroke)"
+								stroke-width="3"
+								stroke-linejoin="round"
+								stroke-linecap="round" />
+							<g class="points">
+								<circle cx="44" cy="153.3" r="4" />
+								<circle cx="134" cy="128.3" r="4" />
+								<circle cx="224" cy="103.3" r="4" />
+								<circle cx="314" cy="120" r="4" />
+								<circle cx="404" cy="86.7" r="4" />
+								<circle cx="494" cy="95" r="4" />
+								<circle cx="584" cy="120" r="5.5" class="current" />
+							</g>
+							<text x="576" y="104" class="value-label" text-anchor="end">
+								30°C
+							</text>
 
-            <!-- grid + y labels (24–36 °C) -->
-            <g class="grid">
-              <line x1="44" y1="20"  x2="584" y2="20"/>
-              <line x1="44" y1="70"  x2="584" y2="70"/>
-              <line x1="44" y1="120" x2="584" y2="120"/>
-              <line x1="44" y1="170" x2="584" y2="170"/>
-              <line x1="44" y1="220" x2="584" y2="220"/>
-            </g>
-            <g class="axis-label" text-anchor="end">
-              <text x="34" y="24">36</text>
-              <text x="34" y="74">33</text>
-              <text x="34" y="124">30</text>
-              <text x="34" y="174">27</text>
-              <text x="34" y="224">24</text>
-            </g>
+							<g class="axis-label" text-anchor="middle">
+								<text x="44" y="246">Mon</text>
+								<text x="134" y="246">Tue</text>
+								<text x="224" y="246">Wed</text>
+								<text x="314" y="246">Thu</text>
+								<text x="404" y="246">Fri</text>
+								<text x="494" y="246">Sat</text>
+								<text x="584" y="246" text-anchor="end">Sun</text>
+							</g>
+						</svg>
+					</article>
 
-            <!-- data: 28, 29.5, 31, 30, 32, 31.5, 30 -->
-            <path d="M44 153.3 L134 128.3 L224 103.3 L314 120 L404 86.7 L494 95 L584 120 L584 220 L44 220 Z" fill="url(#area)"/>
-            <polyline points="44,153.3 134,128.3 224,103.3 314,120 404,86.7 494,95 584,120"
-                      fill="none" stroke="url(#stroke)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
-            <g class="points">
-              <circle cx="44"  cy="153.3" r="4"/>
-              <circle cx="134" cy="128.3" r="4"/>
-              <circle cx="224" cy="103.3" r="4"/>
-              <circle cx="314" cy="120"   r="4"/>
-              <circle cx="404" cy="86.7"  r="4"/>
-              <circle cx="494" cy="95"    r="4"/>
-              <circle cx="584" cy="120"   r="5.5" class="current"/>
-            </g>
-            <text x="576" y="104" class="value-label" text-anchor="end">30°C</text>
+					<!-- Device controls -->
+					<article class="card panel controls-card">
+						<h2 class="panel-title">Controls</h2>
 
-            <g class="axis-label" text-anchor="middle">
-              <text x="44"  y="246">Mon</text>
-              <text x="134" y="246">Tue</text>
-              <text x="224" y="246">Wed</text>
-              <text x="314" y="246">Thu</text>
-              <text x="404" y="246">Fri</text>
-              <text x="494" y="246">Sat</text>
-              <text x="584" y="246" text-anchor="end">Sun</text>
-            </g>
-          </svg>
-        </article>
+						<section class="control" id="fan-control">
+							<div class="control-head">
+								<span class="control-icon fan-icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24">
+										<circle cx="12" cy="12" r="2" />
+										<path d="M12 10c0-3 .5-6 3-6s3 3.5 0 5.5" />
+										<path d="M14 12c3 0 6 .5 6 3s-3.5 3-5.5 0" />
+										<path d="M12 14c0 3-.5 6-3 6s-3-3.5 0-5.5" />
+										<path d="M10 12c-3 0-6-.5-6-3s3.5-3 5.5 0" />
+									</svg>
+								</span>
+								<div class="control-text">
+									<h3>Fan</h3>
+									<p id="fan-status">Off</p>
+								</div>
+								<button
+									type="button"
+									class="switch"
+									id="fan-toggle"
+									role="switch"
+									aria-checked="false"
+									aria-label="Fan">
+									<span class="switch-thumb"></span>
+								</button>
+							</div>
+						</section>
 
-        <!-- Device controls -->
-        <article class="card panel controls-card">
-          <h2 class="panel-title">Controls</h2>
+						<section class="control irrigation" id="irrigation-control">
+							<div class="control-head">
+								<span class="control-icon water-icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24">
+										<path
+											d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z" />
+									</svg>
+								</span>
+								<div class="control-text">
+									<h3>Irrigation</h3>
+									<p id="irrigation-status" aria-live="polite">
+										Pick a duration to start
+									</p>
+								</div>
+							</div>
 
-          <section class="control" id="fan-control">
-            <div class="control-head">
-              <span class="control-icon fan-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="2"/>
-                  <path d="M12 10c0-3 .5-6 3-6s3 3.5 0 5.5"/>
-                  <path d="M14 12c3 0 6 .5 6 3s-3.5 3-5.5 0"/>
-                  <path d="M12 14c0 3-.5 6-3 6s-3-3.5 0-5.5"/>
-                  <path d="M10 12c-3 0-6-.5-6-3s3.5-3 5.5 0"/>
-                </svg>
-              </span>
-              <div class="control-text">
-                <h3>Fan</h3>
-                <p id="fan-status">Off</p>
-              </div>
-              <button type="button" class="switch" id="fan-toggle" role="switch" aria-checked="false" aria-label="Fan">
-                <span class="switch-thumb"></span>
-              </button>
-            </div>
-          </section>
+							<div class="timer" aria-hidden="true">
+								<svg class="timer-ring" viewBox="0 0 120 120">
+									<circle class="timer-track" cx="60" cy="60" r="52" />
+									<circle
+										class="timer-progress"
+										id="timer-progress"
+										cx="60"
+										cy="60"
+										r="52" />
+								</svg>
+								<span class="timer-text" id="timer-text">00:00</span>
+							</div>
 
-          <section class="control irrigation" id="irrigation-control">
-            <div class="control-head">
-              <span class="control-icon water-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>
-              </span>
-              <div class="control-text">
-                <h3>Irrigation</h3>
-                <p id="irrigation-status" aria-live="polite">Pick a duration to start</p>
-              </div>
-            </div>
+							<div class="presets" role="group" aria-label="Watering duration">
+								<button type="button" data-minutes="1">1 min</button>
+								<button type="button" data-minutes="2">2 min</button>
+								<button type="button" data-minutes="3">3 min</button>
+								<button
+									type="button"
+									data-custom
+									aria-expanded="false"
+									aria-controls="custom-form">
+									Custom
+								</button>
+							</div>
 
-            <div class="timer" aria-hidden="true">
-              <svg class="timer-ring" viewBox="0 0 120 120">
-                <circle class="timer-track" cx="60" cy="60" r="52"/>
-                <circle class="timer-progress" id="timer-progress" cx="60" cy="60" r="52"/>
-              </svg>
-              <span class="timer-text" id="timer-text">00:00</span>
-            </div>
+							<form class="custom-form" id="custom-form" hidden>
+								<label class="visually-hidden" for="custom-minutes"
+									>Minutes</label
+								>
+								<input
+									type="number"
+									id="custom-minutes"
+									min="1"
+									max="120"
+									step="1"
+									placeholder="Minutes"
+									required />
+								<button type="submit">Start</button>
+							</form>
 
-            <div class="presets" role="group" aria-label="Watering duration">
-              <button type="button" data-minutes="1">1 min</button>
-              <button type="button" data-minutes="2">2 min</button>
-              <button type="button" data-minutes="3">3 min</button>
-              <button type="button" data-custom aria-expanded="false" aria-controls="custom-form">Custom</button>
-            </div>
+							<button
+								type="button"
+								class="stop-btn"
+								id="irrigation-stop"
+								hidden>
+								Stop watering
+							</button>
+						</section>
+					</article>
+				</section>
+			</main>
+		</div>
 
-            <form class="custom-form" id="custom-form" hidden>
-              <label class="visually-hidden" for="custom-minutes">Minutes</label>
-              <input type="number" id="custom-minutes" min="1" max="120" step="1" placeholder="Minutes" required>
-              <button type="submit">Start</button>
-            </form>
-
-            <button type="button" class="stop-btn" id="irrigation-stop" hidden>Stop watering</button>
-          </section>
-        </article>
-      </section>
-    </main>
-  </div>
-
-  <!-- Three.js (classic build so the page also works when opened straight from disk) -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
-  <script src="plant.js"></script>
-  <script src="controls.js"></script>
-  <!-- env.js holds your API key (copy env.example.js → env.js) -->
-  <script src="env.js"></script>
-  <script src="weather.js"></script>
-</body>
+		<!-- Three.js (classic build so the page also works when opened straight from disk) -->
+		<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+		<script src="plant.js"></script>
+		<script src="controls.js"></script>
+		<!--
+    Weather settings (Google Maps Platform).
+    Enable the "Weather API" for this key, and the "Geocoding API" too if you want the place name.
+    This key is visible to anyone who views the page, so restrict it to your site's URL in Google Cloud Console.
+  -->
+		<script>
+			window.WEATHER_CONFIG = {
+				apiKey: "AIzaSyBYX2iAJKNsArrCuEwECOYsWEybPE6ZsnY", // paste your Google Maps Platform API key here
+				latitude: null, // where the plant is, e.g. 3.139 (null = use the browser's location)
+				longitude: null, // e.g. 101.6869
+				unitsSystem: "METRIC", // or 'IMPERIAL'
+			};
+		</script>
+		<script src="weather.js"></script>
+	</body>
 </html>

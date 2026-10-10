@@ -1,8 +1,8 @@
 /*
- * Weather card: live conditions + location from The Weather Company (weather.com) API.
+ * Weather card: live conditions from the Google Maps Platform Weather API,
+ * place name from the Geocoding API (same key).
  *
- * Setup: copy env.example.js to env.js and paste your API key (env.js is git-ignored).
- * Without a key the card shows demo data.
+ * Setup: paste your API key into WEATHER_CONFIG in index.html. Without a key the card shows demo data.
  *
  * Fires a 'weather:update' event so the plant scene can show rain, storms, clouds and wind.
  * Preview without an API key: index.html?weather=rain  (clear | partly | cloudy | rain | storm | snow | fog)
@@ -10,11 +10,10 @@
 (function () {
   'use strict';
 
-  const ENV = window.ENV || {};
-  const API_KEY = String(ENV.WEATHER_API_KEY || '').trim();
-  const UNITS = ENV.WEATHER_UNITS === 'e' ? 'e' : 'm';
+  const CONFIG = window.WEATHER_CONFIG || {};
+  const API_KEY = String(CONFIG.apiKey || '').trim();
+  const IMPERIAL = String(CONFIG.unitsSystem || '').toUpperCase() === 'IMPERIAL';
   const REFRESH_MS = 10 * 60 * 1000;
-  const API = 'https://api.weather.com/v3';
 
   const els = {
     location: document.getElementById('weather-location'),
@@ -36,15 +35,16 @@
     snow:   { cloudy: 0.6 },
   };
 
-  function classify(phrase) {
-    const p = String(phrase || '').toLowerCase();
-    if (/thunder|t-storm|storm/.test(p)) return 'storm';
-    if (/rain|shower|drizzle|sprinkle/.test(p)) return 'rain';
-    if (/snow|sleet|flurr|ice|hail|wintry/.test(p)) return 'snow';
-    if (/fog|mist|haze|smoke|dust/.test(p)) return 'fog';
-    if (/partly|mostly sunny|mostly clear|few clouds/.test(p)) return 'partly';
-    if (/cloud|overcast/.test(p)) return 'cloudy';
-    if (/sunny|clear|fair/.test(p)) return 'clear';
+  // Works with the API's condition type (e.g. LIGHT_RAIN_SHOWERS) or a plain description
+  function classify(condition) {
+    const c = String(condition || '').toLowerCase().replace(/_/g, ' ');
+    if (/thunder|storm/.test(c)) return 'storm';
+    if (/rain|shower|drizzle/.test(c)) return 'rain';
+    if (/snow|sleet|hail|ice|flurr/.test(c)) return 'snow';
+    if (/fog|mist|haze|smoke|dust/.test(c)) return 'fog';
+    if (/partly|mostly clear|mostly sunny/.test(c)) return 'partly';
+    if (/cloud|overcast/.test(c)) return 'cloudy';
+    if (/clear|sunny/.test(c)) return 'clear';
     return 'partly';
   }
 
@@ -67,39 +67,52 @@
   }
 
   /* ---------------- Rendering ---------------- */
-  function render({ phrase, windSpeed, location, night, timeZone, muted }) {
-    const kind = classify(phrase);
+  function render({ type, text, windKmh, location, night, timeZone, iconUrl, muted }) {
+    const kind = classify(type || text);
+
+    // Use Google's own condition icon when we have one, our SVG otherwise
     els.icon.innerHTML = iconSvg(kind, night);
-    els.text.textContent = phrase;
-    els.sub.textContent = Number.isFinite(windSpeed) ? `Wind ${Math.round(windSpeed)} ${UNITS === 'e' ? 'mph' : 'km/h'}` : '';
+    if (iconUrl) {
+      const img = new Image();
+      img.alt = '';
+      img.onload = () => els.icon.replaceChildren(img);
+      img.src = iconUrl;
+    }
+
+    els.text.textContent = text;
+    els.sub.textContent = Number.isFinite(windKmh)
+      ? `Wind ${Math.round(IMPERIAL ? windKmh / 1.609 : windKmh)} ${IMPERIAL ? 'mph' : 'km/h'}`
+      : '';
     els.locationText.textContent = location;
     els.location.classList.toggle('is-muted', !!muted);
 
-    const windKmh = UNITS === 'e' ? windSpeed * 1.609 : windSpeed;
     document.dispatchEvent(new CustomEvent('weather:update', {
-      detail: Object.assign({ phrase, kind, windSpeed: windKmh || 0, timeZone: timeZone || null }, KINDS[kind]),
+      detail: Object.assign({ phrase: text, kind, windSpeed: windKmh || 0, timeZone: timeZone || null }, KINDS[kind]),
     }));
   }
 
-  const PREVIEW_PHRASES = { clear: 'Sunny', partly: 'Partly Cloudy', cloudy: 'Cloudy', rain: 'Light Rain', storm: 'Thunderstorm', snow: 'Light Snow', fog: 'Fog' };
+  const PREVIEW = {
+    clear: 'Sunny', partly: 'Partly cloudy', cloudy: 'Cloudy', rain: 'Light rain',
+    storm: 'Thunderstorm', snow: 'Light snow', fog: 'Fog',
+  };
 
   function renderDemo(message) {
     const preview = new URLSearchParams(window.location.search).get('weather');
     const hour = new Date().getHours();
     render({
-      phrase: PREVIEW_PHRASES[preview] || 'Partly Cloudy',
-      windSpeed: 12,
+      text: PREVIEW[preview] || 'Partly cloudy',
+      windKmh: 12,
       location: message,
       night: hour < 6 || hour >= 19,
       muted: true,
     });
   }
 
-  /* ---------------- Weather API ---------------- */
+  /* ---------------- API calls ---------------- */
   function getCoords() {
-    const lat = Number(ENV.WEATHER_LAT);
-    const lon = Number(ENV.WEATHER_LON);
-    if (ENV.WEATHER_LAT != null && ENV.WEATHER_LON != null && Number.isFinite(lat) && Number.isFinite(lon)) {
+    const lat = Number(CONFIG.latitude);
+    const lon = Number(CONFIG.longitude);
+    if (CONFIG.latitude != null && CONFIG.longitude != null && Number.isFinite(lat) && Number.isFinite(lon)) {
       return Promise.resolve({ lat, lon });
     }
     if (!('geolocation' in navigator)) return Promise.resolve(null);
@@ -114,34 +127,58 @@
 
   async function fetchJson(url) {
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`Weather API responded ${res.status}`);
-    return res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data.error && data.error.message) || `HTTP ${res.status}`);
+    return data;
+  }
+
+  async function placeName({ lat, lon }) {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${encodeURIComponent(API_KEY)}`;
+    const data = await fetchJson(url);
+    if (data.status !== 'OK') throw new Error(data.error_message || data.status);
+    const parts = data.results.flatMap((r) => r.address_components);
+    const find = (type) => parts.find((p) => p.types.includes(type));
+    const city = find('locality') || find('administrative_area_level_2') || find('sublocality');
+    const state = find('administrative_area_level_1');
+    const country = find('country');
+    // e.g. "Kuala Lumpur, MY" rather than "Kuala Lumpur, Kuala Lumpur"
+    const region = state && (!city || state.short_name !== city.long_name) ? state : country;
+    return [city && city.long_name, region && region.short_name].filter(Boolean).join(', ');
   }
 
   async function load() {
     const coords = await getCoords();
     if (!coords) {
-      renderDemo('Set WEATHER_LAT / WEATHER_LON in env.js');
+      renderDemo('Set location in index.html');
       return;
     }
 
-    const query = `geocode=${coords.lat.toFixed(3)},${coords.lon.toFixed(3)}&language=en-US&format=json&apiKey=${encodeURIComponent(API_KEY)}`;
-    const [obs, place] = await Promise.all([
-      fetchJson(`${API}/wx/observations/current?${query}&units=${UNITS}`),
-      fetchJson(`${API}/location/point?${query}`).catch(() => null),
+    const url = 'https://weather.googleapis.com/v1/currentConditions:lookup'
+      + `?key=${encodeURIComponent(API_KEY)}`
+      + `&location.latitude=${coords.lat}&location.longitude=${coords.lon}`
+      + `&unitsSystem=${IMPERIAL ? 'IMPERIAL' : 'METRIC'}`;
+
+    const [now, name] = await Promise.all([
+      fetchJson(url),
+      placeName(coords).catch((err) => {
+        console.warn('Place name lookup failed (is the Geocoding API enabled for this key?):', err);
+        return '';
+      }),
     ]);
 
-    const loc = (place && place.location) || {};
-    const name = [loc.city || loc.displayName, loc.adminDistrictCode || loc.adminDistrict || loc.countryCode]
-      .filter(Boolean)
-      .join(', ');
+    const condition = now.weatherCondition || {};
+    const speed = now.wind && now.wind.speed;
+    let windKmh = speed ? Number(speed.value) : NaN;
+    if (speed && /MILES/.test(speed.unit || '')) windKmh *= 1.609;
 
     render({
-      phrase: obs.wxPhraseLong || obs.wxPhraseShort || 'Unknown',
-      windSpeed: Number(obs.windSpeed),
+      type: condition.type,
+      text: (condition.description && condition.description.text) || 'Unknown',
+      windKmh,
       location: name || `${coords.lat.toFixed(2)}, ${coords.lon.toFixed(2)}`,
-      night: obs.dayOrNight === 'N',
-      timeZone: loc.ianaTimeZone,
+      night: now.isDaytime === false,
+      timeZone: now.timeZone && now.timeZone.id,
+      iconUrl: condition.iconBaseUri ? `${condition.iconBaseUri}.svg` : '',
     });
   }
 
@@ -154,7 +191,7 @@
   }
 
   if (!API_KEY) {
-    renderDemo('Add your API key in env.js');
+    renderDemo('Add API key in index.html');
     return;
   }
 
