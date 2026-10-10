@@ -34,3 +34,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# frontend config with API keys (copy Frontend/env.example.js)
+Frontend/env.js
