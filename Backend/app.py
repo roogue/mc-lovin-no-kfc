@@ -1,7 +1,6 @@
 import base64
 import json
 import math
-import os
 import re
 import time
 from flask import Flask, request, jsonify
@@ -11,16 +10,17 @@ from openai import OpenAI
 app = Flask(__name__)
 CORS(app)
 
-DEVICE_KEY = os.environ["DEVICE_KEY"]
-REQUIRE_DEVICE_KEY = os.environ.get("REQUIRE_DEVICE_KEY") == "1"
+# Settings (edit here; nothing is read from the environment)
+DEVICE_KEY = ""
+REQUIRE_DEVICE_KEY = False  # True: POST /data needs the header X-API-Key: DEVICE_KEY
 FIELDS = ("temperature", "humidity", "pressure")
 STALE_AFTER = 10
 DEFAULT_VALVE_SECONDS = 60
 MAX_VALVE_SECONDS = 600
 
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "sk-de105445e21f463a8ae733d50e94e35a")
-DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "DeepSeek-V4-Pro-0813")
+DEEPSEEK_API_KEY = "sk-de105445e21f463a8ae733d50e94e35a"
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+DEEPSEEK_MODEL = "DeepSeek-V4-Pro-0813"
 SCAN_MIMES = {"image/jpeg", "image/png", "image/webp"}
 MAX_SCAN_BYTES = 8 * 1024 * 1024
 

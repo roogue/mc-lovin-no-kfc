@@ -14,9 +14,9 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "sk-de105445e21f463a8ae733d50e94e35a")
-DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+DEEPSEEK_API_KEY = "sk-de105445e21f463a8ae733d50e94e35a"
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+DEEPSEEK_MODEL = "deepseek-chat"
 
 client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
 

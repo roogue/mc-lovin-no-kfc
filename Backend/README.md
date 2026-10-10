@@ -19,23 +19,20 @@ ESP32 --serial--> ESP SERVER --POST /data, GET /status--> this API <--GET /api/s
 
 ## Settings
 
-The app reads these environment variables (see `.env.example`):
+The settings are constants at the top of `app.py`; edit them there:
 
-- `DEVICE_KEY`: key for the ESP SERVER (required to start, even while it isn't enforced)
-- `REQUIRE_DEVICE_KEY`: set to `1` to make `POST /data` require `DEVICE_KEY`
-
-Never commit real keys. `.env` files are git-ignored.
+- `DEVICE_KEY`: key for the ESP SERVER
+- `REQUIRE_DEVICE_KEY`: set to `True` to make `POST /data` require `X-API-Key: DEVICE_KEY`
+- `DEEPSEEK_API_KEY`: key for the disease scan (`POST /api/disease-scan`)
 
 ## On the VPS
 
-The app runs as a systemd service that loads its keys with `EnvironmentFile=/root/sensor-api/.env` and starts
-`Backend/app.py` from this repo. After `git pull`, restart the service so it picks up changes:
+The app runs as a systemd service that starts `Backend/app.py` from this repo. After `git pull`, restart the service
+so it picks up changes:
 
 ```bash
 sudo systemctl restart <your-service-name>
 ```
-
-The app does not read `.env` by itself; systemd provides the variables.
 
 ## Run it locally
 
@@ -44,10 +41,7 @@ cd Backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-
-$env:DEVICE_KEY = "local-device-key"
 python app.py
 ```
 
-It listens on port 9012 (`http://localhost:9012/api/sensor`). On macOS / Linux use `export DEVICE_KEY=...` instead of
-`$env:`.
+It listens on port 9012 (`http://localhost:9012/api/sensor`).
