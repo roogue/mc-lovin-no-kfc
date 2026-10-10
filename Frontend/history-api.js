@@ -1,8 +1,10 @@
 // History from the Plant Check API for the history pages, and saving photo scans (window.PlantHistory).
 //   GET /api/history?hours=N               → { hours, bucket_seconds, points: [{ t, temperature, humidity, pressure, precipitation, samples }] }
 //   GET /api/readings?hours=N&limit&offset → { total, limit, offset, readings: [{ id, recorded_at, temperature, humidity, pressure, precipitation }] }
-//   GET /api/disease?limit=N               → { scans: [{ id, scanned_at, status, issue, confidence, health_percentage, description, recommendations }] }
-//   POST /api/disease                      ← { status, issue, confidence, health_percentage, description, recommendations }
+//   GET /api/disease?limit=N               → { scans: [{ id, scanned_at, status, issue, confidence, health_percentage, description, recommendations, image_url }] }
+//   POST /api/disease                      ← { status, issue, confidence, health_percentage, description, recommendations } → { ok, id }
+//   POST /api/disease/<id>/image           ← multipart form, field "image" (JPEG / PNG / WebP, max 10 MB) → { ok, id, image_url, bytes }
+//   image_url is a path ("/api/disease/images/<file>") on the API, or null when the scan has no photo.
 // Times from the API are UTC ("YYYY-MM-DD HH:MM:SS", or Unix seconds for history points); pages show local time.
 // Reading is only used in live mode (sample mode keeps reading the sample files in public/data/). Saving a photo
 // scan happens in both modes: the analysis is real either way.
@@ -31,7 +33,8 @@ window.PlantHistory = (function () {
 
 	class ApiError extends Error {}
 
-	async function get(path, params = {}, { method = "GET", body } = {}) {
+	// body: sent as JSON; form: a FormData sent as multipart (the browser sets its Content-Type)
+	async function get(path, params = {}, { method = "GET", body, form } = {}) {
 		const url = new URL(`${BASE}${path}`);
 		Object.entries(params).forEach(([k, v]) => v != null && url.searchParams.set(k, String(v)));
 		const controller = new AbortController();
@@ -42,7 +45,7 @@ window.PlantHistory = (function () {
 				method,
 				cache: "no-store",
 				headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-				body: body === undefined ? undefined : JSON.stringify(body),
+				body: form || (body === undefined ? undefined : JSON.stringify(body)),
 				signal: controller.signal,
 			});
 		} catch {
@@ -58,6 +61,7 @@ window.PlantHistory = (function () {
 			} catch {
 				/* no JSON error body */
 			}
+			if (res.status === 413) throw new ApiError(`the photo is too large for the server (HTTP 413${detail}).`);
 			throw new ApiError(`The API answered with an error (HTTP ${res.status}${detail}).`);
 		}
 		try {
@@ -97,6 +101,14 @@ window.PlantHistory = (function () {
 					recommendations: Array.isArray(r.recommendations) ? r.recommendations : r.recommendations ?? null,
 				},
 			}),
+		// Uploads the photo for a saved scan
+		uploadScanImage: (id, blob, filename = "scan.jpg") => {
+			const form = new FormData();
+			form.append("image", blob, filename);
+			return get(`/api/disease/${encodeURIComponent(id)}/image`, {}, { method: "POST", form });
+		},
+		// "/api/disease/images/<file>" → full URL on the API (absolute URLs are kept as they are)
+		imageUrl: (path) => (!path ? null : /^https?:\/\//.test(path) ? path : `${BASE}${path.startsWith("/") ? "" : "/"}${path}`),
 		parseUtc,
 		num,
 		ApiError,

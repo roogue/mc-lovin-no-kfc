@@ -308,17 +308,69 @@
 		el.hidden = false;
 	}
 
-	async function saveScan(result) {
-		if (!window.PlantHistory) return;
-		scanSaved("Saving to the scan history…", "saving");
+	const PHOTO_MAX_SIDE = 1600;
+	const PHOTO_QUALITY = 0.85;
+	const UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+
+	// Shrinks the photo for upload: longest side about 1600 px, JPEG. Falls back to the original file if the
+	// browser can't decode it here.
+	async function photoForUpload(file) {
 		try {
-			await PlantHistory.saveScan(result);
-			scanSaved(PlantHistory.isLive() ? "Saved to the scan history." : "Saved to the scan history (shown when the dashboard uses real-time data).", "saved");
-			if (PlantHistory.isLive()) refreshLive();
+			const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+			const scale = Math.min(1, PHOTO_MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+			const canvas = document.createElement("canvas");
+			canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+			canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+			const ctx = canvas.getContext("2d");
+			ctx.fillStyle = "#FFFFFF"; // JPEG has no transparency
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+			ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+			bitmap.close?.();
+			const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", PHOTO_QUALITY));
+			if (blob) return { blob, name: "scan.jpg" };
+		} catch (err) {
+			console.warn("Couldn't shrink the photo, uploading the original:", err);
+		}
+		return { blob: file, name: file.name || "scan" };
+	}
+
+	async function savePhoto(id, file) {
+		if (id == null) throw new Error("the server didn't return the scan's id");
+		const { blob, name } = await photoForUpload(file);
+		if (blob.size > UPLOAD_MAX_BYTES) throw new Error("the photo is over 10 MB");
+		await PlantHistory.uploadScanImage(id, blob, name);
+	}
+
+	const lowerFirst = (text) => String(text).replace(/^./, (c) => c.toLowerCase());
+
+	async function saveScan(result, photo) {
+		if (!window.PlantHistory) return;
+		const live = PlantHistory.isLive();
+		const later = live ? "" : " (shown when the dashboard uses real-time data)";
+		scanSaved("Saving to the scan history…", "saving");
+		let id;
+		try {
+			const saved = await PlantHistory.saveScan(result);
+			id = saved && saved.id;
 		} catch (err) {
 			console.warn("Could not save the scan:", err);
 			scanSaved(`Not saved: ${err.message}`, "error");
+			return;
 		}
+		// The scan is saved from here on; a failed photo upload doesn't change that
+		if (photo) {
+			scanSaved(`Saved to the scan history${later}. Uploading the photo…`, "saving");
+			try {
+				await savePhoto(id, photo);
+				scanSaved(`Saved to the scan history with photo${later}.`, "saved");
+			} catch (err) {
+				console.warn("Could not upload the scan photo:", err);
+				scanSaved(`Saved, but the photo wasn't: ${lowerFirst(err.message).replace(/\.$/, "")}.`, "partial");
+			}
+		} else {
+			scanSaved(`Saved to the scan history${later}.`, "saved");
+		}
+		if (live) refreshLive();
 	}
 
 	function initScan() {
@@ -354,9 +406,10 @@
 			submit.disabled = true;
 			submit.textContent = "Analysing…";
 			try {
-				const result = await analysePhoto(scanFile);
+				const photo = scanFile;
+				const result = await analysePhoto(photo);
 				renderScanResult(result);
-				saveScan(result);
+				saveScan(result, photo);
 			} catch (err) {
 				scanError(err.message);
 			} finally {
@@ -395,6 +448,7 @@
 			health: n(s.health_percentage),
 			description: s.description ? String(s.description) : "",
 			recommendations: recommendations.map(String).filter(Boolean),
+			image: PlantHistory.imageUrl(s.image_url),
 		};
 	}
 
@@ -462,6 +516,59 @@
 		return details;
 	}
 
+	// Thumbnail that opens the full photo; scans without a photo get none (and a photo that fails to load is dropped)
+	function scanThumb(s) {
+		if (!s.image) return null;
+		const btn = document.createElement("button");
+		btn.type = "button";
+		btn.className = "scan-thumb";
+		btn.setAttribute("aria-label", `Open the photo for ${s.disease}, ${scanTime(s.when)}`);
+		const img = document.createElement("img");
+		img.src = s.image;
+		img.alt = "";
+		img.loading = "lazy";
+		img.decoding = "async";
+		img.addEventListener("error", () => btn.remove());
+		btn.appendChild(img);
+		btn.addEventListener("click", () => openPhoto(s));
+		return btn;
+	}
+
+	// Lightbox for a scan photo (Esc, the close button or a click outside closes it)
+	let photoDialog = null;
+	function openPhoto(s) {
+		if (!photoDialog) {
+			photoDialog = document.createElement("dialog");
+			photoDialog.className = "photo-lightbox";
+			photoDialog.setAttribute("aria-labelledby", "photo-lightbox-title");
+			photoDialog.innerHTML = `
+				<div class="photo-lightbox-panel">
+					<header class="photo-lightbox-head">
+						<div>
+							<h2 id="photo-lightbox-title"></h2>
+							<p class="photo-lightbox-sub"></p>
+						</div>
+						<button type="button" class="photo-lightbox-close" aria-label="Close photo">
+							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+						</button>
+					</header>
+					<img class="photo-lightbox-img" alt="" />
+				</div>`;
+			document.body.appendChild(photoDialog);
+			photoDialog.querySelector(".photo-lightbox-close").addEventListener("click", () => photoDialog.close());
+			photoDialog.addEventListener("click", (e) => {
+				if (e.target === photoDialog) photoDialog.close();
+			});
+		}
+		photoDialog.querySelector("#photo-lightbox-title").textContent = s.disease;
+		photoDialog.querySelector(".photo-lightbox-sub").textContent =
+			`${scanTime(s.when)} · ${SCAN_LABEL[s.status] || titleText(s.status)}${s.health != null ? ` · ${Math.round(s.health)}% health` : ""}`;
+		const img = photoDialog.querySelector(".photo-lightbox-img");
+		img.src = s.image;
+		img.alt = `Plant photo: ${s.disease}`;
+		photoDialog.showModal();
+	}
+
 	function renderLiveTable(scans) {
 		const body = $("detections-body");
 		if (!scans.length) return tableMessage("No scans yet.");
@@ -473,6 +580,11 @@
 				time.textContent = scanTime(s.when);
 				const issue = document.createElement("td");
 				issue.className = "scan-issue-cell";
+				const thumb = scanThumb(s);
+				if (thumb) {
+					issue.classList.add("has-thumb");
+					issue.appendChild(thumb);
+				}
 				issue.append(tag("scan-issue-name", s.disease));
 				const details = scanDetails(s);
 				if (details) issue.appendChild(details);
