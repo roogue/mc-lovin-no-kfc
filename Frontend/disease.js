@@ -300,6 +300,27 @@
 		}
 	}
 
+	// Every finished analysis goes into the database (POST /api/disease); the history below then reloads in live mode
+	function scanSaved(text, state) {
+		const el = $("scan-saved");
+		el.textContent = text;
+		el.dataset.state = state;
+		el.hidden = false;
+	}
+
+	async function saveScan(result) {
+		if (!window.PlantHistory) return;
+		scanSaved("Saving to the scan history…", "saving");
+		try {
+			await PlantHistory.saveScan(result);
+			scanSaved(PlantHistory.isLive() ? "Saved to the scan history." : "Saved to the scan history (shown when the dashboard uses real-time data).", "saved");
+			if (PlantHistory.isLive()) refreshLive();
+		} catch (err) {
+			console.warn("Could not save the scan:", err);
+			scanSaved(`Not saved: ${err.message}`, "error");
+		}
+	}
+
 	function initScan() {
 		const input = $("scan-input");
 		const submit = $("scan-submit");
@@ -329,10 +350,13 @@
 			if (!scanFile) return scanError("Please upload a plant photo first.");
 			scanError("");
 			$("scan-result").hidden = true;
+			$("scan-saved").hidden = true;
 			submit.disabled = true;
 			submit.textContent = "Analysing…";
 			try {
-				renderScanResult(await analysePhoto(scanFile));
+				const result = await analysePhoto(scanFile);
+				renderScanResult(result);
+				saveScan(result);
 			} catch (err) {
 				scanError(err.message);
 			} finally {
@@ -483,12 +507,16 @@
 		$("detections-sub").textContent = "From photo scans, newest first, in your local time";
 		$("banner-title").textContent = "Loading the latest scans…";
 		tableMessage("Loading scans…");
+		refreshLive();
+	}
 
+	function refreshLive() {
 		PlantHistory.disease(50)
 			.then((data) => {
 				const scans = (Array.isArray(data && data.scans) ? data.scans : [])
 					.map(fromScan)
 					.sort((a, b) => (b.when ? b.when.getTime() : 0) - (a.when ? a.when.getTime() : 0));
+				$("disease-banner").classList.remove("is-muted");
 				renderLiveBanner(scans);
 				renderLiveTiles(scans);
 				renderLiveTable(scans);

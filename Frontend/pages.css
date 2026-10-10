@@ -663,6 +663,32 @@
   line-height: 1.5;
 }
 
+/* ----- Photo scan: saved to the database ----- */
+.scan-saved {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.scan-saved[hidden] {
+  display: none;
+}
+
+.scan-saved::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.scan-saved[data-state="saved"] { color: var(--green-dark); }
+.scan-saved[data-state="error"] { color: #B4432B; }
+
 /* ----- Live data: readings pager and scan details ----- */
 /* Sections for the other data source (live / sample) stay hidden even where their class sets display */
 main [data-mode][hidden] {

@@ -1,9 +1,11 @@
-// Read-only history from the Plant Check API for the history pages (window.PlantHistory).
+// History from the Plant Check API for the history pages, and saving photo scans (window.PlantHistory).
 //   GET /api/history?hours=N               → { hours, bucket_seconds, points: [{ t, temperature, humidity, pressure, precipitation, samples }] }
 //   GET /api/readings?hours=N&limit&offset → { total, limit, offset, readings: [{ id, recorded_at, temperature, humidity, pressure, precipitation }] }
 //   GET /api/disease?limit=N               → { scans: [{ id, scanned_at, status, issue, confidence, health_percentage, description, recommendations }] }
+//   POST /api/disease                      ← { status, issue, confidence, health_percentage, description, recommendations }
 // Times from the API are UTC ("YYYY-MM-DD HH:MM:SS", or Unix seconds for history points); pages show local time.
-// Only used in live mode; sample mode keeps reading the sample files in public/data/.
+// Reading is only used in live mode (sample mode keeps reading the sample files in public/data/). Saving a photo
+// scan happens in both modes: the analysis is real either way.
 
 window.PlantHistory = (function () {
 	"use strict";
@@ -29,23 +31,39 @@ window.PlantHistory = (function () {
 
 	class ApiError extends Error {}
 
-	async function get(path, params = {}) {
+	async function get(path, params = {}, { method = "GET", body } = {}) {
 		const url = new URL(`${BASE}${path}`);
 		Object.entries(params).forEach(([k, v]) => v != null && url.searchParams.set(k, String(v)));
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 		let res;
 		try {
-			res = await fetch(url, { cache: "no-store", signal: controller.signal });
+			res = await fetch(url, {
+				method,
+				cache: "no-store",
+				headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+				body: body === undefined ? undefined : JSON.stringify(body),
+				signal: controller.signal,
+			});
 		} catch {
 			throw new ApiError(`Can't reach the API (${BASE.replace(/^https?:\/\//, "")}).`);
 		} finally {
 			clearTimeout(timer);
 		}
-		if (!res.ok) throw new ApiError(`The API answered with an error (HTTP ${res.status}).`);
+		if (!res.ok) {
+			let detail = "";
+			try {
+				const data = await res.json();
+				detail = data && data.error ? `: ${data.error}` : "";
+			} catch {
+				/* no JSON error body */
+			}
+			throw new ApiError(`The API answered with an error (HTTP ${res.status}${detail}).`);
+		}
 		try {
 			return await res.json();
 		} catch {
+			if (method !== "GET") return null; // saved; the server just didn't send anything back
 			throw new ApiError("The API sent something that isn't valid data.");
 		}
 	}
@@ -66,6 +84,19 @@ window.PlantHistory = (function () {
 		history: (hours) => get("/api/history", { hours }),
 		readings: (hours, limit, offset) => get("/api/readings", { hours, limit, offset }),
 		disease: (limit = 50) => get("/api/disease", { limit }),
+		// Saves one photo-scan result (only the fields the API stores)
+		saveScan: (r) =>
+			get("/api/disease", {}, {
+				method: "POST",
+				body: {
+					status: r.status ?? null,
+					issue: r.issue ?? null,
+					confidence: r.confidence ?? null,
+					health_percentage: r.health_percentage ?? null,
+					description: r.description ?? null,
+					recommendations: Array.isArray(r.recommendations) ? r.recommendations : r.recommendations ?? null,
+				},
+			}),
 		parseUtc,
 		num,
 		ApiError,
