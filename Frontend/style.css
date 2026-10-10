@@ -736,6 +736,132 @@ svg {
   fill: var(--text);
 }
 
+/* ----- Latest updates table ----- */
+.updates-card {
+  margin-top: 20px;
+}
+
+.updates-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.updates-link {
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.updates-link:hover {
+  border-color: var(--green);
+  color: var(--green-dark);
+}
+
+.updates-link:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.updates-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.updates-table th,
+.updates-table td {
+  padding: 12px;
+  white-space: nowrap;
+}
+
+.updates-table th:first-child,
+.updates-table td:first-child {
+  padding-left: 0;
+}
+
+.updates-table th:last-child,
+.updates-table td:last-child {
+  padding-right: 0;
+}
+
+.updates-table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.updates-table td {
+  border-bottom: 1px solid #F1F1F1;
+}
+
+.updates-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.updates-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.updates-table tbody tr:hover {
+  background: #FAFAFA;
+}
+
+.updates-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.updates-table .icon-col svg {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.condition {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.condition::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* darker shades of the plant card's state colors so the text stays readable on white */
+.condition-healthy  { color: #23854A; }
+.condition-sick     { color: #A86A00; }
+.condition-withered { color: #B4432B; }
+
+.updates-table .disease.is-none {
+  color: var(--text-muted);
+}
+
+.updates-table td.updates-message {
+  padding: 24px 0;
+  text-align: center;
+  white-space: normal;
+  color: var(--text-muted);
+}
+
 /* ----- Controls card ----- */
 .controls-card {
   display: flex;
@@ -791,6 +917,44 @@ svg {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* Automate */
+#auto-control.is-on {
+  background: #F5F6FF;
+  border-color: #D9DEFF;
+}
+
+#auto-control.is-on .auto-icon {
+  background: linear-gradient(180deg, #FF9E9F 0%, #A3B4FF 100%);
+  color: #FFFFFF;
+}
+
+.switch.auto-switch[aria-checked="true"] {
+  background: #7C8CF8;
+}
+
+.auto-rules,
+.auto-log {
+  margin-top: 8px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.auto-log {
+  margin-top: 4px;
+  font-weight: 600;
+  color: #5563D6;
+}
+
+.auto-log[hidden] {
+  display: none;
+}
+
+.switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Fan */

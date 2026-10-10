@@ -1,0 +1,25 @@
+{
+  "location": "Kuching Waterfront, Sarawak",
+  "generatedAt": "2026-10-10T08:00:00+08:00",
+  "units": {
+    "avgTemp": "°C",
+    "avgHumidity": "%",
+    "avgPrecip": "% chance of rain"
+  },
+  "days": [
+    { "date": "2026-10-10", "condition": "healthy",  "avgTemp": 31.5, "avgHumidity": 62, "avgPrecip": 20, "fanUses": 6, "irrigations": 2, "disease": null },
+    { "date": "2026-10-09", "condition": "healthy",  "avgTemp": 32.0, "avgHumidity": 58, "avgPrecip": 10, "fanUses": 8, "irrigations": 3, "disease": null },
+    { "date": "2026-10-08", "condition": "sick",     "avgTemp": 30.0, "avgHumidity": 71, "avgPrecip": 65, "fanUses": 4, "irrigations": 1, "disease": "Powdery Mildew" },
+    { "date": "2026-10-07", "condition": "sick",     "avgTemp": 31.0, "avgHumidity": 74, "avgPrecip": 80, "fanUses": 3, "irrigations": 0, "disease": "Powdery Mildew" },
+    { "date": "2026-10-06", "condition": "healthy",  "avgTemp": 29.5, "avgHumidity": 66, "avgPrecip": 45, "fanUses": 5, "irrigations": 1, "disease": null },
+    { "date": "2026-10-05", "condition": "sick",     "avgTemp": 28.0, "avgHumidity": 63, "avgPrecip": 30, "fanUses": 2, "irrigations": 3, "disease": "Leaf Blight" },
+    { "date": "2026-10-04", "condition": "withered", "avgTemp": 30.0, "avgHumidity": 45, "avgPrecip": 0,  "fanUses": 7, "irrigations": 0, "disease": "Leaf Blight" },
+    { "date": "2026-10-03", "condition": "sick",     "avgTemp": 30.5, "avgHumidity": 52, "avgPrecip": 5,  "fanUses": 6, "irrigations": 0, "disease": "Leaf Blight" },
+    { "date": "2026-10-02", "condition": "healthy",  "avgTemp": 31.2, "avgHumidity": 55, "avgPrecip": 0,  "fanUses": 7, "irrigations": 1, "disease": null },
+    { "date": "2026-10-01", "condition": "healthy",  "avgTemp": 30.8, "avgHumidity": 60, "avgPrecip": 15, "fanUses": 5, "irrigations": 2, "disease": null },
+    { "date": "2026-09-30", "condition": "healthy",  "avgTemp": 29.9, "avgHumidity": 68, "avgPrecip": 55, "fanUses": 3, "irrigations": 1, "disease": null },
+    { "date": "2026-09-29", "condition": "sick",     "avgTemp": 29.4, "avgHumidity": 77, "avgPrecip": 85, "fanUses": 2, "irrigations": 0, "disease": "Nutrient Deficiency" },
+    { "date": "2026-09-28", "condition": "healthy",  "avgTemp": 30.2, "avgHumidity": 64, "avgPrecip": 35, "fanUses": 4, "irrigations": 2, "disease": null },
+    { "date": "2026-09-27", "condition": "healthy",  "avgTemp": 31.0, "avgHumidity": 59, "avgPrecip": 20, "fanUses": 6, "irrigations": 2, "disease": null }
+  ]
+}

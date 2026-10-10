@@ -1,10 +1,20 @@
 /*
- * Device controls: fan toggle + irrigation countdown timer.
+ * Device controls: Automate mode, fan toggle and irrigation countdown timer.
  * Hook your backend calls into onFanChange / onIrrigationStart / onIrrigationStop.
- * Also fires 'device:fan' and 'device:irrigation' events so the plant scene can react.
+ * Also fires 'device:fan' and 'device:irrigation' events so the plant scene can react,
+ * and listens for 'sensor:update' (from sensors.js) to drive Automate mode.
  */
 (function () {
   'use strict';
+
+  /* ---------------- Automate rules ---------------- */
+  const AUTO_RULES = {
+    fanOnAt: { temperature: 32, humidity: 80 },     // fan turns on when either reading reaches this
+    fanOffBelow: { temperature: 31, humidity: 75 }, // ...and off once both drop below (the gap stops it flickering)
+    waterAt: { temperature: 33 },                   // water when it gets this hot
+    waterMinutes: 1,
+    waterCooldownMinutes: 30,                       // at most one automatic watering per 30 minutes
+  };
 
   /* ---------------- Backend hooks (replace with real API calls) ---------------- */
   function onFanChange(isOn) { /* e.g. fetch('/api/fan', { method: 'POST', body: JSON.stringify({ on: isOn }) }) */ }
@@ -12,27 +22,36 @@
   function onIrrigationStop(finished) { /* e.g. fetch('/api/irrigation/stop', { ... }) */ }
 
   const emit = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
+  const clock = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  let autoOn = false;
 
   /* ---------------- Fan ---------------- */
   const fanControl = document.getElementById('fan-control');
   const fanToggle = document.getElementById('fan-toggle');
   const fanStatus = document.getElementById('fan-status');
+  let fanOn = false;
 
-  if (fanToggle) {
-    fanToggle.addEventListener('click', () => {
-      const on = fanToggle.getAttribute('aria-checked') !== 'true';
-      fanToggle.setAttribute('aria-checked', String(on));
-      fanControl.classList.toggle('is-on', on);
-      fanStatus.textContent = on ? 'On · Cooling' : 'Off';
-      onFanChange(on);
-      emit('device:fan', { on });
-    });
+  function renderFan() {
+    fanToggle.setAttribute('aria-checked', String(fanOn));
+    fanControl.classList.toggle('is-on', fanOn);
+    fanStatus.textContent = `${fanOn ? 'On · Cooling' : 'Off'}${autoOn ? ' · Auto' : ''}`;
   }
+
+  function setFan(on) {
+    if (on === fanOn) return;
+    fanOn = on;
+    renderFan();
+    onFanChange(on);
+    emit('device:fan', { on });
+  }
+
+  fanToggle.addEventListener('click', () => {
+    if (!autoOn) setFan(!fanOn);
+  });
 
   /* ---------------- Irrigation ---------------- */
   const irrigation = document.getElementById('irrigation-control');
-  if (!irrigation) return;
-
   const statusEl = document.getElementById('irrigation-status');
   const timerText = document.getElementById('timer-text');
   const progress = document.getElementById('timer-progress');
@@ -51,17 +70,28 @@
   let tick = null;
   let doneTimeout = null;
 
+  const isWatering = () => tick !== null;
+  const idleMessage = () => (autoOn ? 'Automate will water when it gets hot' : 'Pick a duration to start');
+
   const format = (secs) => {
     const s = Math.max(0, Math.ceil(secs));
     return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
   };
 
+  // Manual buttons are locked while watering or while Automate is in charge
+  function updateLocks() {
+    const locked = isWatering() || autoOn;
+    presetButtons.forEach((b) => { b.disabled = locked; });
+    customButton.disabled = locked;
+    fanToggle.disabled = autoOn;
+    fanToggle.title = autoOn ? 'Turn off Automate to control the fan yourself' : '';
+    if (locked) hideCustom();
+  }
+
   function setRunning(running) {
     irrigation.classList.toggle('is-running', running);
-    presetButtons.forEach((b) => { b.disabled = running; });
-    customButton.disabled = running;
     stopButton.hidden = !running;
-    if (running) hideCustom();
+    updateLocks();
   }
 
   function render() {
@@ -81,9 +111,9 @@
     statusEl.textContent = `Watering for ${label}…`;
     presetButtons.forEach((b) => b.classList.toggle('active', Number(b.dataset.minutes) === minutes));
     customButton.classList.toggle('active', !Array.from(presetButtons).some((b) => Number(b.dataset.minutes) === minutes));
+    tick = setInterval(render, 250);
     setRunning(true);
     render();
-    tick = setInterval(render, 250);
     onIrrigationStart(total);
     emit('device:irrigation', { running: true, seconds: total });
   }
@@ -104,10 +134,10 @@
       statusEl.textContent = 'Done! Plant watered 💧';
       doneTimeout = setTimeout(() => {
         irrigation.classList.remove('is-done');
-        statusEl.textContent = 'Pick a duration to start';
+        statusEl.textContent = idleMessage();
       }, 4000);
     } else {
-      statusEl.textContent = 'Stopped. Pick a duration to start';
+      statusEl.textContent = autoOn ? 'Stopped' : 'Stopped. Pick a duration to start';
     }
   }
 
@@ -146,4 +176,74 @@
   customInput.addEventListener('input', () => customInput.setCustomValidity(''));
 
   stopButton.addEventListener('click', () => finish(false));
+
+  /* ---------------- Automate ---------------- */
+  const autoControl = document.getElementById('auto-control');
+  const autoToggle = document.getElementById('auto-toggle');
+  const autoStatus = document.getElementById('auto-status');
+  const autoRules = document.getElementById('auto-rules');
+  const autoLog = document.getElementById('auto-log');
+
+  let latest = null;
+  let lastAutoWater = -Infinity;
+
+  autoRules.textContent =
+    `Fan on at ${AUTO_RULES.fanOnAt.temperature}°C or ${AUTO_RULES.fanOnAt.humidity}% humidity · ` +
+    `Waters ${AUTO_RULES.waterMinutes} min at ${AUTO_RULES.waterAt.temperature}°C`;
+
+  function log(text) {
+    autoLog.textContent = `${clock()} · ${text}`;
+    autoLog.hidden = false;
+  }
+
+  function renderAuto() {
+    autoToggle.setAttribute('aria-checked', String(autoOn));
+    autoControl.classList.toggle('is-on', autoOn);
+    if (!autoOn) autoStatus.textContent = 'Off · Manual control';
+    else if (latest) autoStatus.textContent = `On · Now ${latest.temperature.toFixed(1)}°C, ${Math.round(latest.humidity)}%`;
+    else autoStatus.textContent = 'On · Waiting for sensor readings';
+  }
+
+  function applyRules() {
+    if (!autoOn || !latest) return;
+    const { temperature: t, humidity: h } = latest;
+    const R = AUTO_RULES;
+
+    const hot = t >= R.fanOnAt.temperature;
+    const humid = h >= R.fanOnAt.humidity;
+    if (!fanOn && (hot || humid)) {
+      setFan(true);
+      log(`Fan on (${hot ? `${t.toFixed(1)}°C` : `${Math.round(h)}% humidity`})`);
+    } else if (fanOn && t < R.fanOffBelow.temperature && h < R.fanOffBelow.humidity) {
+      setFan(false);
+      log('Fan off (back to normal)');
+    }
+
+    const cooledDown = Date.now() - lastAutoWater >= R.waterCooldownMinutes * 60 * 1000;
+    if (t >= R.waterAt.temperature && !isWatering() && cooledDown) {
+      lastAutoWater = Date.now();
+      start(R.waterMinutes, `${R.waterMinutes} min (auto)`);
+      log(`Watering (${t.toFixed(1)}°C)`);
+    }
+  }
+
+  autoToggle.addEventListener('click', () => {
+    autoOn = !autoOn;
+    if (!isWatering() && !irrigation.classList.contains('is-done')) statusEl.textContent = idleMessage();
+    updateLocks();
+    renderFan();
+    renderAuto();
+    if (autoOn) applyRules();
+  });
+
+  document.addEventListener('sensor:update', (e) => {
+    const { temperature, humidity } = e.detail || {};
+    if (!Number.isFinite(temperature) || !Number.isFinite(humidity)) return;
+    latest = { temperature, humidity };
+    renderAuto();
+    applyRules();
+  });
+
+  renderFan();
+  renderAuto();
 })();
