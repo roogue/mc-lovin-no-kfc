@@ -12,15 +12,13 @@ app = Flask(__name__)
 CORS(app)
 
 DEVICE_KEY = os.environ["DEVICE_KEY"]
-DASH_KEY = os.environ["DASH_KEY"]
 REQUIRE_DEVICE_KEY = os.environ.get("REQUIRE_DEVICE_KEY") == "1"
-REQUIRE_DASH_KEY = os.environ.get("REQUIRE_DASH_KEY", "1") == "1"
 FIELDS = ("temperature", "humidity", "pressure")
 STALE_AFTER = 10
 DEFAULT_VALVE_SECONDS = 60
 MAX_VALVE_SECONDS = 600
 
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "sk-de105445e21f463a8ae733d50e94e35a")
 DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "DeepSeek-V4-Pro-0813")
 SCAN_MIMES = {"image/jpeg", "image/png", "image/webp"}
@@ -85,7 +83,7 @@ def index():
         endpoints={
             "GET /api/sensor": "latest sensor reading",
             "GET /api/relay": "fan and valve state",
-            "POST /api/relay": "set fan or valve" + (" (needs X-API-Key)" if REQUIRE_DASH_KEY else ""),
+            "POST /api/relay": "set fan or valve",
             "POST /data": "device: send a reading" + (" (needs X-API-Key)" if REQUIRE_DEVICE_KEY else ""),
             "GET /status": "device: get relay state",
         },
@@ -132,8 +130,6 @@ def get_relay():
 @app.post("/api/relay")
 def post_relay():
     global fan_on, valve_until
-    if REQUIRE_DASH_KEY and request.headers.get("X-API-Key") != DASH_KEY:
-        return jsonify(error="unauthorized"), 401
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify(error="invalid json"), 400

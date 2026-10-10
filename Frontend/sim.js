@@ -168,9 +168,7 @@
 
 	/* ================= Backend (Backend/app.py) ================= */
 	const backend = {
-		requireDashKey: true, // REQUIRE_DASH_KEY (on unless set to something other than "1")
 		requireDeviceKey: false, // REQUIRE_DEVICE_KEY
-		dashKey: "sim-password", // DASH_KEY: simulation only, shown on this page
 		deviceKey: "sim-device-key", // DEVICE_KEY: the simulated ESP server doesn't send it (like Weisen's script)
 		sensor: null,
 		fanOn: false,
@@ -208,7 +206,7 @@
 					endpoints: {
 						"GET /api/sensor": "latest sensor reading",
 						"GET /api/relay": "fan and valve state",
-						"POST /api/relay": `set fan or valve${this.requireDashKey ? " (needs X-API-Key)" : ""}`,
+						"POST /api/relay": "set fan or valve",
 						"POST /data": `device: send a reading${this.requireDeviceKey ? " (needs X-API-Key)" : ""}`,
 						"GET /status": "device: get relay state",
 					},
@@ -225,7 +223,6 @@
 			}
 			if (method === "GET" && path === "/api/relay") return reply(200, this.relayState());
 			if (method === "POST" && path === "/api/relay") {
-				if (this.requireDashKey && key !== this.dashKey) return reply(401, { error: "unauthorized" });
 				if (!isDict(body)) return reply(400, { error: "invalid json" });
 				for (const k of ["fan", "valve"]) {
 					if (k in body && typeof body[k] !== "boolean") return reply(400, { error: `${k} must be true or false` });
@@ -253,7 +250,7 @@
 			const res = this.handle(req);
 			let note = who;
 			if (req.method === "POST" && req.path === "/api/relay" && res.status === 200) {
-				note = `${who} · ${Object.keys(req.body || {}).length ? pyJson(req.body) : "access check"}`;
+				note = `${who} · ${pyJson(req.body || {})}`;
 			}
 			pushRequest(this.requests, { method: req.method, path: req.path, status: res.status, note }, 9);
 			renderBackend();
@@ -348,7 +345,7 @@
 
 			// The dashboard's API calls (only sent while its data source is "Simulation")
 			if (data.type === "api") {
-				const req = { method: data.method, path: data.path, body: data.body, key: data.key };
+				const req = { method: data.method, path: data.path, body: data.body };
 				const isCommand = data.method === "POST";
 				const res = backend.request("Dashboard", req); // answered at once, even from a background tab
 				send({ type: "api-reply", id: data.id, status: res.status, data: res.data });
@@ -539,14 +536,8 @@
 	}
 
 	/* ================= Backend panel ================= */
-	const dashKeyToggle = $("dashkey-toggle");
-	const dashKeyInput = $("dashkey-input");
 	const deviceKeyToggle = $("devicekey-toggle");
 
-	dashKeyToggle.addEventListener("click", () => {
-		backend.requireDashKey = !backend.requireDashKey;
-		renderBackend();
-	});
 	deviceKeyToggle.addEventListener("click", () => {
 		backend.requireDeviceKey = !backend.requireDeviceKey;
 		serialPrint(backend.requireDeviceKey ? "error" : "info", backend.requireDeviceKey
@@ -554,14 +545,9 @@
 			: "BACKEND accepts POST /data without a key again");
 		renderBackend();
 	});
-	dashKeyInput.addEventListener("input", () => {
-		backend.dashKey = dashKeyInput.value;
-	});
 
 	function renderBackend() {
-		dashKeyToggle.setAttribute("aria-checked", String(backend.requireDashKey));
 		deviceKeyToggle.setAttribute("aria-checked", String(backend.requireDeviceKey));
-		dashKeyInput.disabled = !backend.requireDashKey;
 		const sensor = backend.handle({ method: "GET", path: "/api/sensor" }).data;
 		const relay = backend.relayState();
 		$("be-sensor").textContent = JSON.stringify(sensor, (k, v) => (k === "received_at" ? undefined : v), 2);

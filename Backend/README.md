@@ -5,7 +5,7 @@ reading and the fan / valve state in memory.
 
 ```
 ESP32 --serial--> ESP SERVER --POST /data, GET /status--> this API <--GET /api/sensor, /api/relay-- dashboard
-                                                                     <--POST /api/relay (with key)-- dashboard
+                                                                     <--POST /api/relay------------ dashboard
 ```
 
 | Endpoint | Used by | What it does |
@@ -15,18 +15,14 @@ ESP32 --serial--> ESP SERVER --POST /data, GET /status--> this API <--GET /api/s
 | `GET /status` | ESP SERVER | Returns `{"fan": bool, "valve": bool}` |
 | `GET /api/sensor` | Dashboard | Latest reading plus `received_at`, `age`, `connected` (false once the reading is 10 s old), or `{"connected": false}` |
 | `GET /api/relay` | Dashboard | `{"fan": bool, "valve": bool, "valve_remaining": seconds}` |
-| `POST /api/relay` | Dashboard | Header `X-API-Key: DASH_KEY` (unless `REQUIRE_DASH_KEY` is off); body `{"fan": bool}`, `{"valve": true, "seconds": N}` (max 600) or `{"valve": false}`. Values must be real JSON booleans. |
+| `POST /api/relay` | Dashboard | No key needed. Body `{"fan": bool}`, `{"valve": true, "seconds": N}` (max 600) or `{"valve": false}`. Values must be real JSON booleans. |
 
 ## Settings
 
 The app reads these environment variables (see `.env.example`):
 
 - `DEVICE_KEY`: key for the ESP SERVER (required to start, even while it isn't enforced)
-- `DASH_KEY`: the dashboard's "Control password" for switching the fan and valve
 - `REQUIRE_DEVICE_KEY`: set to `1` to make `POST /data` require `DEVICE_KEY`
-- `REQUIRE_DASH_KEY`: `1` (the default when it isn't set) makes `POST /api/relay` require `DASH_KEY`. Any other value,
-  including an empty one, lets anyone switch the fan and valve. The dashboard only asks for its "Control password" when
-  the server answers 401.
 
 Never commit real keys. `.env` files are git-ignored.
 
@@ -50,7 +46,6 @@ python -m venv .venv
 pip install -r requirements.txt
 
 $env:DEVICE_KEY = "local-device-key"
-$env:DASH_KEY = "local-dashboard-key"
 python app.py
 ```
 

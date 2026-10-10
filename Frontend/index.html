@@ -640,8 +640,8 @@
 		<!-- Three.js (classic build so the page also works when opened straight from disk) -->
 		<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
 		<!--
-			Live data: the Plant Check backend (Backend/app.py). The dashboard reads GET /api/sensor and GET /api/relay;
-			switching the fan / valve asks for the "Control password" (never stored in code).
+			Live data: the Plant Check backend (Backend/app.py). The dashboard reads GET /api/sensor and GET /api/relay
+			and switches the fan / valve with POST /api/relay (no key needed).
 		-->
 		<script>
 			window.API_CONFIG = {
