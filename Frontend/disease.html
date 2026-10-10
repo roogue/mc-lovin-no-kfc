@@ -118,17 +118,26 @@
 				</div>
 				<p class="scan-error" id="scan-error" role="alert" hidden></p>
 				<div class="scan-result" id="scan-result" hidden aria-live="polite">
-					<h3>Model analysis</h3>
-					<div class="scan-row"><span>Health score</span><strong id="scan-health"></strong></div>
-					<div class="scan-health-bar"><span id="scan-health-fill"></span></div>
-					<div class="scan-row"><span>Status</span><strong id="scan-status"></strong></div>
-					<div class="scan-row" id="scan-issue-row"><span>Issue</span><strong id="scan-issue"></strong></div>
-					<div class="scan-row"><span>Confidence</span><strong id="scan-confidence"></strong></div>
-					<h4>Description</h4>
-					<p id="scan-description"></p>
+					<div class="scan-summary">
+						<div class="scan-gauge" id="scan-gauge" role="img">
+							<svg viewBox="0 0 44 44" aria-hidden="true">
+								<circle class="scan-gauge-track" cx="22" cy="22" r="18" />
+								<circle class="scan-gauge-fill" id="scan-gauge-fill" cx="22" cy="22" r="18" />
+							</svg>
+							<div class="scan-gauge-value"><span id="scan-health"></span><small>health</small></div>
+						</div>
+						<div class="scan-summary-text">
+							<div class="scan-chips">
+								<span class="scan-chip is-status" id="scan-status"></span>
+								<span class="scan-chip" id="scan-confidence"></span>
+							</div>
+							<h3 id="scan-issue"></h3>
+							<p id="scan-description"></p>
+						</div>
+					</div>
 					<div id="scan-recs">
-						<h4>Recommendations</h4>
-						<ol id="scan-recommendations"></ol>
+						<h4>What to do</h4>
+						<ol class="scan-steps" id="scan-recommendations"></ol>
 					</div>
 				</div>
 			</section>
@@ -169,7 +178,8 @@
 	</div>
 
 	<script>
-		window.API_CONFIG = { baseUrl: "https://api.putrinaqibah.com" };
+		// window.API_CONFIG = { baseUrl: "https://api.putrinaqibah.com" };
+		window.API_CONFIG = { baseUrl: "http://localhost:9012" };
 	</script>
 	<script src="updates.js"></script>
 	<script src="disease.js"></script>

@@ -45,8 +45,11 @@ The app does not read `.env` by itself; systemd provides the variables.
 ```powershell
 cd Backend
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1 #windows
+source .venv/bin/activate #mac
 pip install -r requirements.txt
+
+export DEVICE_KEY=x DASH_KEY=x DEEPSEEK_API_KEY=sk-de105445e21f463a8ae733d50e94e35a
 
 $env:DEVICE_KEY = "local-device-key"
 $env:DASH_KEY = "local-dashboard-key"

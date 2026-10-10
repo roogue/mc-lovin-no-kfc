@@ -62,18 +62,25 @@
 		return td;
 	}
 
-	function renderBanner(detections) {
+	const ALERT_ICON =
+		'<svg viewBox="0 0 24 24"><path d="M12 8v5M12 16.5v.5" /><path d="M10.3 3.9L2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></svg>';
+
+	function showAlertBanner(title, text) {
 		const banner = $("disease-banner");
+		banner.classList.remove("is-muted");
+		banner.classList.add("is-alert");
+		$("banner-title").textContent = title;
+		$("banner-text").textContent = text;
+		banner.querySelector(".status-banner-icon").innerHTML = ALERT_ICON;
+	}
+
+	function renderBanner(detections) {
 		const active = detections.filter((d) => d.status === "active");
 		const latest = detections[0];
 
 		if (active.length) {
 			const names = [...new Set(active.map((d) => d.disease))].join(", ");
-			banner.classList.add("is-alert");
-			$("banner-title").textContent = `${names} detected`;
-			$("banner-text").textContent = "Check the guide below for what to do. The camera will keep watching.";
-			banner.querySelector(".status-banner-icon").innerHTML =
-				'<svg viewBox="0 0 24 24"><path d="M12 8v5M12 16.5v.5" /><path d="M10.3 3.9L2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></svg>';
+			showAlertBanner(`${names} detected`, "Check the guide below for what to do. The camera will keep watching.");
 		} else {
 			$("banner-title").textContent = "No active disease";
 			$("banner-text").textContent = latest
@@ -180,17 +187,19 @@
 		return String(s || "–").replace(/^./, (c) => c.toUpperCase());
 	}
 
+	const GAUGE_LENGTH = 2 * Math.PI * 18;
+
 	function renderScanResult(r) {
 		const pct = Math.min(100, Math.max(0, Number(r.health_percentage) || 0));
-		$("scan-health").textContent = `${pct}%`;
-		const fill = $("scan-health-fill");
-		fill.style.width = `${pct}%`;
-		fill.className = pct >= 70 ? "is-good" : pct >= 40 ? "is-fair" : "is-poor";
+		const status = SCAN_STATUS[r.status] || titleCase(r.status);
+		const result = $("scan-result");
+		result.dataset.tone = pct >= 70 ? "good" : pct >= 40 ? "fair" : "poor";
 
-		$("scan-status").textContent = SCAN_STATUS[r.status] || titleCase(r.status);
-		$("scan-issue").textContent = r.issue || "";
-		$("scan-issue-row").hidden = !r.issue;
-		$("scan-confidence").textContent = titleCase(r.confidence);
+		$("scan-health").textContent = `${pct}%`;
+		$("scan-gauge").setAttribute("aria-label", `Estimated plant health ${pct}%`);
+		$("scan-status").textContent = status;
+		$("scan-confidence").textContent = `${titleCase(r.confidence)} confidence`;
+		$("scan-issue").textContent = r.issue || (r.status === "healthy" ? "No issues found" : status);
 		$("scan-description").textContent = r.description || "";
 
 		const recs = Array.isArray(r.recommendations) ? r.recommendations : [];
@@ -202,7 +211,18 @@
 				return li;
 			}),
 		);
-		$("scan-result").hidden = false;
+		// Start the gauge empty so it sweeps up to the score once visible
+		const fill = $("scan-gauge-fill");
+		fill.style.strokeDasharray = GAUGE_LENGTH;
+		fill.style.strokeDashoffset = GAUGE_LENGTH;
+		result.hidden = false;
+		fill.getBoundingClientRect();
+		fill.style.strokeDashoffset = GAUGE_LENGTH * (1 - pct / 100);
+
+		// Banner only changes when the scan finds a problem
+		if (r.status !== "healthy") {
+			showAlertBanner(`${r.issue || status} detected`, "Found by photo scan. See the recommendations below for what to do.");
+		}
 	}
 
 	function initScan() {

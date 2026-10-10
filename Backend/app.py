@@ -20,9 +20,9 @@ STALE_AFTER = 10
 DEFAULT_VALVE_SECONDS = 60
 MAX_VALVE_SECONDS = 600
 
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+DEEPSEEK_API_KEY = "sk-de105445e21f463a8ae733d50e94e35a"
 DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "DeepSeek-V4-Pro-0813")
+DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-flash")
 SCAN_MIMES = {"image/jpeg", "image/png", "image/webp"}
 MAX_SCAN_BYTES = 8 * 1024 * 1024
 
@@ -173,6 +173,8 @@ def disease_scan():
             ],
             max_tokens=1024,
             timeout=90,
+            # Thinking is on by default and would eat the token budget before the JSON
+            extra_body={"thinking": {"type": "disabled"}},
         )
     except Exception:
         app.logger.warning("DeepSeek request failed", exc_info=True)
