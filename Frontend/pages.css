@@ -759,6 +759,187 @@
   line-height: 1.5;
 }
 
+/* ----- Photo scan: saved to the database ----- */
+.scan-saved {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.scan-saved[hidden] {
+  display: none;
+}
+
+.scan-saved::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.scan-saved[data-state="saved"] { color: var(--green-dark); }
+.scan-saved[data-state="error"] { color: #B4432B; }
+.scan-saved[data-state="partial"] { color: #8A5A00; }
+
+/* Scan history: photo thumbnail + lightbox */
+.updates-table td.scan-issue-cell.has-thumb {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: start;
+}
+
+.scan-issue-cell.has-thumb > :not(.scan-thumb) {
+  grid-column: 2;
+}
+
+.scan-thumb {
+  grid-row: 1 / span 2;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #F3F4F6;
+  cursor: zoom-in;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.scan-thumb:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.scan-thumb:active {
+  transform: scale(0.96);
+}
+
+.scan-thumb:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.scan-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-lightbox {
+  width: min(920px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100vh - 32px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.photo-lightbox::backdrop {
+  background: rgba(8, 10, 18, 0.72);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.photo-lightbox-panel {
+  overflow: hidden;
+  border-radius: 18px;
+  background: #0F1115;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  color: #F3F4F6;
+}
+
+.photo-lightbox-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.photo-lightbox-head h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.photo-lightbox-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #9CA3AF;
+}
+
+.photo-lightbox-close {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #F3F4F6;
+  cursor: pointer;
+}
+
+.photo-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.photo-lightbox-close:focus-visible {
+  outline: 2px solid #6FD1FF;
+  outline-offset: 2px;
+}
+
+.photo-lightbox-close svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.photo-lightbox-img {
+  display: block;
+  width: 100%;
+  max-height: calc(100vh - 120px);
+  object-fit: contain;
+  background: #000000;
+}
+
+@media (max-width: 720px) {
+  .photo-lightbox {
+    width: 100vw;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+  }
+
+  .photo-lightbox-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .photo-lightbox-head {
+    padding-top: calc(12px + env(safe-area-inset-top));
+  }
+
+  .photo-lightbox-img {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+  }
+}
+
 /* ----- Live data: readings pager and scan details ----- */
 /* Sections for the other data source (live / sample) stay hidden even where their class sets display */
 main [data-mode][hidden] {
