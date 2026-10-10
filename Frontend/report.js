@@ -269,13 +269,20 @@ function closeReport() {
 	activeReportId = null;
 }
 
-// Calling window.print() right after writing the report's innerHTML can race
-// the browser's layout/paint — some machines print a blank page because the
-// freshly-injected DOM hasn't been laid out yet. Waiting for webfonts plus a
-// couple of animation frames guarantees the modal has actually been painted
-// before print() captures it.
+// The modal's open-state transition is a 0.2s fade-in. Calling window.print()
+// right after writing the report's innerHTML can both race the browser's
+// layout/paint (printing a blank page before anything is laid out) and catch
+// the fade mid-flight (printing every color at partial opacity, i.e. "shaded"
+// instead of solid). @media print disables the animation outright, but we
+// also wait out its duration here as a second line of defense, plus webfonts
+// and a couple of animation frames so the DOM is guaranteed painted first.
+const MODAL_FADE_MS = 200;
+
 function printActiveReport() {
-	const triggerPrint = () => requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+	const triggerPrint = () =>
+		requestAnimationFrame(() =>
+			requestAnimationFrame(() => setTimeout(() => window.print(), MODAL_FADE_MS))
+		);
 	if (document.fonts && document.fonts.ready) {
 		document.fonts.ready.then(triggerPrint, triggerPrint);
 	} else {

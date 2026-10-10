@@ -477,6 +477,16 @@
     color-adjust: exact !important;
   }
 
+  /* The modal's open-state fade-in (opacity 0 -> 1 over 0.2s) can still be
+     mid-flight when print() captures the page, so every color comes out
+     washed out/"shaded" at whatever opacity it was caught at. Kill it for
+     print so the page is always captured at full, true-to-screen opacity. */
+  .report-modal,
+  .report-modal.open {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
   body * {
     visibility: hidden;
   }
