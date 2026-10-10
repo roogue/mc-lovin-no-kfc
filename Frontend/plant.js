@@ -107,7 +107,6 @@
     msg: document.getElementById('status-msg'),
     health: document.getElementById('health-value'),
     effects: document.getElementById('effect-chips'),
-    buttons: card.querySelectorAll('.state-switch button'),
   };
 
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -125,7 +124,6 @@
     ui.title.textContent = s.title;
     ui.msg.textContent = s.msg;
     ui.health.textContent = `${s.health}%`;
-    ui.buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.state === name)));
 
     if (!firstRun) {
       ui.statusCard.classList.remove('pop');
@@ -145,8 +143,6 @@
     card.style.setProperty('--sky-bottom', rgbCss(sky.bottom));
     card.dataset.sky = sunAt(h).daylight < 0.35 ? 'night' : 'day';
   }
-
-  ui.buttons.forEach((b) => b.addEventListener('click', () => setState(b.dataset.state)));
 
   function renderEffects() {
     const chips = [];

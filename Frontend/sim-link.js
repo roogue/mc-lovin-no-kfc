@@ -22,7 +22,7 @@
 			case "disease":
 				document.dispatchEvent(new CustomEvent("plant:disease", { detail: data.payload }));
 				break;
-			case "data-source": // Sample data / live from ESP32 switch on the simulation page
+			case "data-source": // the simulation page's remote control: real-time or sample
 				if (window.PlantSensors) PlantSensors.setMode(data.mode);
 				break;
 			case "hello":

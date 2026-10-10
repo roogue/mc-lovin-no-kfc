@@ -5,7 +5,7 @@
  * e.g. {"temperature": 31.2, "humidity": 74.5, "pressure": 1008.2}. It is polled every few seconds.
  * Without a URL, a demo feed drifts through Kuching-like readings so Automate has something to react to.
  *
- * Data source (chosen from the source chip on the dashboard or the simulation page; remembered in localStorage):
+ * Data source (chosen on the simulation page, the remote control; remembered in localStorage):
  *   'live'       – polls GET /api/sensor (and GET /api/relay) on the backend every API_CONFIG.pollSeconds.
  *                  Uses the API's own "connected" flag; no reading / unreachable server → cards go empty.
  *   'sample'     – the demo feed (or SENSOR_CONFIG.url); nothing from the backend or the simulation.
@@ -93,11 +93,13 @@
 
   /* ---------- Data source + connection ---------- */
   const SOURCE_KEY = 'plantcheck:data-source';
-  const MODES = ['sample', 'live', 'simulation'];
+  // Chosen on the simulation page (the remote control): real-time ('live') or sample (the demo feed, made in this tab).
+  // Without an API configured it's always sample.
+  const MODES = ['live', 'sample'];
   const API_CFG = window.API_CONFIG || {};
-  const DEFAULT_MODE = MODES.includes(API_CFG.defaultSource)
-    ? API_CFG.defaultSource
-    : window.PlantAPI && PlantAPI.configured ? 'live' : 'sample';
+  const DEFAULT_MODE = !(window.PlantAPI && PlantAPI.configured)
+    ? 'sample'
+    : MODES.includes(API_CFG.defaultSource) ? API_CFG.defaultSource : 'live';
 
   const readMode = () => {
     try {

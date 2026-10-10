@@ -152,7 +152,7 @@
 
 	// loop(): every txInterval, read the BME280 and print one JSON line on serial
 	function esp32Tick() {
-		if (!running) return;
+		if (!running || !simActive()) return;
 		stepEnvironment();
 		const e = esp32.env;
 		const f = (v) => (esp32.sensorOk ? v.toFixed(2) : "nan"); // an unplugged BME280 reads NaN
@@ -300,7 +300,7 @@
 		},
 
 		poll() {
-			if (!running) return;
+			if (!running || !simActive()) return;
 			if (!esp32.attached) {
 				serialPrint("error", "SERVER serial error: could not open port COM3 (ESP32 unplugged)");
 				return;
@@ -356,8 +356,8 @@
 
 			if (data.state) dashboardState = data.state;
 			if (data.source) dashboardSource = data.source;
-			if (data.type === "data-source" && data.mode && data.mode !== dataSource) {
-				dataSource = data.mode; // changed on the dashboard (its chip menu or the "Use sample data" button)
+			if (data.type === "data-source" && SOURCE_NAMES[data.mode] && data.mode !== dataSource) {
+				dataSource = data.mode; // e.g. the dashboard fell back to its default
 				saveSource();
 			}
 			renderSource();
@@ -399,7 +399,7 @@
 	/* ================= Dashboard data source ================= */
 	const SOURCE_KEY = "plantcheck:data-source";
 	const sourceButtons = document.querySelectorAll("#data-source button");
-	const SOURCE_NAMES = { sample: "sample data", simulation: "this simulation", live: "live data from the real API" };
+	const SOURCE_NAMES = { sample: "sample data", live: "real-time data" };
 	let dataSource = (() => {
 		try {
 			const stored = localStorage.getItem(SOURCE_KEY);
@@ -408,6 +408,50 @@
 			return "live";
 		}
 	})();
+
+	// The hardware simulation only runs while the dashboard reads it (data source "simulation"). The remote offers
+	// real-time and sample data, so it stays off and every reading here stays empty.
+	const simActive = () => dataSource === "simulation";
+	let wasActive = null;
+
+	function resetSimulation() {
+		esp32.lastLine = "";
+		esp32.fan = false;
+		esp32.valve = false;
+		rxBuffer = "";
+		backend.sensor = null;
+		backend.fanOn = false;
+		backend.valveUntil = 0;
+		backend.requests = [];
+		Object.assign(espServer, { posts: 0, lastPost: null, lastPostStatus: null, lastStatus: null, lastCommand: null, requests: [] });
+	}
+
+	function applySourceMode() {
+		const active = simActive();
+		document.body.classList.toggle("sim-idle", !active);
+		$("sim-idle-note").hidden = active;
+		$("sim-idle-text").textContent =
+			dataSource === "sample"
+				? "The dashboard shows sample data, made up in its own tab (it keeps going when this page is closed). The simulated hardware below isn't used and its readings stay empty."
+				: "The dashboard shows real-time data from the ESP32, so the simulated hardware below isn't used and its readings stay empty.";
+		runBtn.disabled = !active;
+		if (active !== wasActive) {
+			if (!active) {
+				resetSimulation();
+				if (wasActive !== null) serialPrint("info", `Simulation stopped: the dashboard is on ${SOURCE_NAMES[dataSource]}`);
+			} else {
+				esp32.bootAt = performance.now();
+				if (wasActive !== null) {
+					serialPrint("info", "ESP32 booting… relays OFF, BME280 found at 0x76");
+					serialPrint("info", "SERVER connected to the ESP32 over serial (115200 baud)");
+				}
+			}
+			wasActive = active;
+			renderEsp32();
+			renderServer();
+			renderBackend();
+		}
+	}
 
 	function saveSource() {
 		try {
@@ -433,11 +477,12 @@
 	});
 
 	function renderSource() {
+		applySourceMode(); // only called after boot, when runBtn exists
 		sourceButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.source === dataSource)));
 		const s = dashboardSource && dashboardSource.mode === dataSource ? dashboardSource : null;
 		let note;
-		if (dataSource === "sample") note = "The dashboard shows sample readings and ignores this simulation.";
-		else if (dataSource === "live") note = "The dashboard uses the real API and ignores this simulation. Nothing here is ever sent to the real API.";
+		if (dataSource === "live") note = "The dashboard shows real-time readings from the ESP32 (the real API). Nothing here is ever sent to the real API.";
+		else if (dataSource === "sample") note = "The dashboard shows sample readings made up in its own tab. They keep coming even when this page is closed.";
 		else if (!dashboardConnected()) note = "The dashboard will read this page's simulated backend. Open it to see the readings.";
 		else if (s && s.state === "connected") note = "The dashboard is reading this page's simulated backend.";
 		else if (s && s.state === "disconnected") note = "The dashboard says the simulated ESP32 isn't sending: check the USB serial, the BME280 or Pause.";
@@ -485,12 +530,13 @@
 
 	function renderEsp32() {
 		const e = esp32.env;
-		const show = (v, d) => (esp32.sensorOk ? v.toFixed(d) : "NaN");
-		$("esp-temp").textContent = `${show(e.temperature, 1)}°C`;
-		$("esp-humidity").textContent = `${show(e.humidity, 0)}%`;
-		$("esp-pressure").textContent = `${show(e.pressure, 1)}`;
-		$("esp-uptime").textContent = formatUptime(performance.now() - esp32.bootAt);
-		$("esp-line").textContent = esp32.lastLine || "waiting for first reading…";
+		const on = simActive();
+		const show = (v, d) => (!on ? "—" : esp32.sensorOk ? v.toFixed(d) : "NaN");
+		$("esp-temp").textContent = on ? `${show(e.temperature, 1)}°C` : "—";
+		$("esp-humidity").textContent = on ? `${show(e.humidity, 0)}%` : "—";
+		$("esp-pressure").textContent = show(e.pressure, 1);
+		$("esp-uptime").textContent = on ? formatUptime(performance.now() - esp32.bootAt) : "—";
+		$("esp-line").textContent = !on ? "off: the simulation isn't running" : esp32.lastLine || "waiting for first reading…";
 
 		[["relay-fan", esp32.fan], ["relay-valve", esp32.valve]].forEach(([id, on]) => {
 			const el = $(id);
@@ -500,18 +546,18 @@
 
 		modeButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === esp32.mode)));
 		Object.entries(sliders).forEach(([key, input]) => {
-			input.disabled = esp32.mode !== "manual";
+			input.disabled = !on || esp32.mode !== "manual";
 			if (esp32.mode !== "manual") input.value = e[key];
-			$(`${input.id}-value`).textContent = Number(esp32.mode === "manual" ? esp32.manual[key] : e[key]).toFixed(key === "humidity" ? 0 : 1);
+			$(`${input.id}-value`).textContent = on ? Number(esp32.mode === "manual" ? esp32.manual[key] : e[key]).toFixed(key === "humidity" ? 0 : 1) : "—";
 		});
 		bmeToggle.setAttribute("aria-checked", String(esp32.sensorOk));
 		usbToggle.setAttribute("aria-checked", String(esp32.attached));
 		$("flow").classList.toggle("is-unplugged", !esp32.attached);
-		$("bme-chip").textContent = !esp32.attached ? "USB unplugged" : esp32.sensorOk ? "BME280 OK" : "BME280 missing";
-		$("bme-chip").classList.toggle("is-bad", !esp32.sensorOk || !esp32.attached);
+		$("bme-chip").textContent = !on ? "Off" : !esp32.attached ? "USB unplugged" : esp32.sensorOk ? "BME280 OK" : "BME280 missing";
+		$("bme-chip").classList.toggle("is-bad", on && (!esp32.sensorOk || !esp32.attached));
 
-		$("flow-sensors").textContent = esp32.sensorOk ? `${e.temperature.toFixed(1)}°C · ${Math.round(e.humidity)}%` : "BME280 unplugged";
-		$("flow-esp32").textContent = `Fan ${esp32.fan ? "on" : "off"} · Valve ${esp32.valve ? "open" : "closed"}`;
+		$("flow-sensors").textContent = !on ? "Off" : esp32.sensorOk ? `${e.temperature.toFixed(1)}°C · ${Math.round(e.humidity)}%` : "BME280 unplugged";
+		$("flow-esp32").textContent = !on ? "Off" : `Fan ${esp32.fan ? "on" : "off"} · Valve ${esp32.valve ? "open" : "closed"}`;
 	}
 
 	/* ================= ESP server panel ================= */
@@ -553,16 +599,16 @@
 		$("be-sensor").textContent = JSON.stringify(sensor, (k, v) => (k === "received_at" ? undefined : v), 2);
 		$("be-relay").textContent = JSON.stringify(relay, null, 2);
 		const chip = $("backend-chip");
-		chip.textContent = sensor.connected ? "connected: true" : "connected: false";
-		chip.classList.toggle("is-bad", !sensor.connected);
+		chip.textContent = !simActive() ? "off" : sensor.connected ? "connected: true" : "connected: false";
+		chip.classList.toggle("is-bad", simActive() && !sensor.connected);
 		renderRequests($("be-requests"), backend.requests);
-		$("flow-backend").textContent = relay.valve ? `Watering · ${relay.valve_remaining}s left` : `Fan ${relay.fan ? "on" : "off"} · valve off`;
+		$("flow-backend").textContent = !simActive() ? "Off" : relay.valve ? `Watering · ${relay.valve_remaining}s left` : `Fan ${relay.fan ? "on" : "off"} · valve off`;
 	}
 
 	function renderFlow() {
 		const connected = dashboardConnected();
 		const usingSim = connected && dataSource === "simulation";
-		$("flow-server").textContent = espServer.mode === "mock" ? "Random relay mock" : "Polls /status every 3 s";
+		$("flow-server").textContent = !simActive() ? "Off" : espServer.mode === "mock" ? "Random relay mock" : "Polls /status every 3 s";
 		$("flow-dashboard").textContent = !connected ? "Not open" : usingSim ? "Reading this backend" : `On ${SOURCE_NAMES[dataSource]}`;
 		$("flow").classList.toggle("is-offline", !usingSim);
 		const chip = $("dash-chip");
@@ -594,6 +640,7 @@
 	serialPrint("info", "SERVER connected to the ESP32 over serial (115200 baud)");
 	serialPrint("info", "BACKEND ready (simulated Backend/app.py in this tab)");
 	send({ type: "hello" });
+	applySourceMode();
 	renderEsp32();
 	renderServer();
 	renderBackend();
@@ -603,6 +650,7 @@
 	every(COMMAND_INTERVAL, () => espServer.poll());
 	setInterval(renderBackend, 1000); // age, "connected" and the valve countdown move on their own
 	setInterval(() => {
+		send({ type: "hello" }); // an open dashboard answers, so "Dashboard connected" stays right in every mode
 		renderFlow();
 		renderPlant();
 		renderSource();

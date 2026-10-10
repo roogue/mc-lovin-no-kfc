@@ -73,7 +73,7 @@
 						</svg>
 						<span class="nav-label">Disease</span>
 					</a>
-					<a href="monitoring-history.html" class="nav-item" title="Monitoring History">
+					<a href="monitoring-history.html" class="nav-item" data-short="History" title="Monitoring History">
 						<svg viewBox="0 0 24 24" aria-hidden="true">
 							<path d="M3 12a9 9 0 1 0 3-6.7" />
 							<path d="M3 4v4h4" />
@@ -115,6 +115,10 @@
 					</div>
 				</div>
 
+				<div class="sim-idle-note" id="sim-idle-note" hidden>
+					<p><strong>Hardware simulation off.</strong> <span id="sim-idle-text">The dashboard shows real-time data from the ESP32, so the simulated hardware below isn't used and its readings stay empty.</span></p>
+				</div>
+
 				<p class="sim-warning" id="sim-warning" hidden>
 					Run <code>npm run dev</code> and open this page and the dashboard from localhost. Pages opened straight from disk can't talk to each other.
 				</p>
@@ -123,11 +127,10 @@
 					<div class="sim-stack">
 					<article class="card panel sim-source">
 						<h2 class="panel-title">Dashboard data</h2>
-						<p class="chart-sub">Where the dashboard's temperature and humidity come from</p>
-						<div class="range-switch sim-source-switch" id="data-source" role="group" aria-label="Dashboard data source">
+						<p class="chart-sub">Remote control: what the dashboard shows</p>
+						<div class="range-switch sim-source-switch" id="data-source" role="group" aria-label="Dashboard data">
+							<button type="button" data-source="live" aria-pressed="true">Real-time</button>
 							<button type="button" data-source="sample" aria-pressed="false">Sample</button>
-							<button type="button" data-source="simulation" aria-pressed="false">Simulation</button>
-							<button type="button" data-source="live" aria-pressed="true">Live API</button>
 						</div>
 						<p class="sim-note" id="source-note"></p>
 					</article>

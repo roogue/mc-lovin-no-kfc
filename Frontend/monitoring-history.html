@@ -72,7 +72,7 @@
 						</svg>
 						<span class="nav-label">Disease</span>
 					</a>
-					<a href="monitoring-history.html" class="nav-item active" title="Monitoring History">
+					<a href="monitoring-history.html" class="nav-item active" data-short="History" title="Monitoring History">
 						<svg viewBox="0 0 24 24" aria-hidden="true">
 							<path d="M3 12a9 9 0 1 0 3-6.7" />
 							<path d="M3 4v4h4" />
@@ -105,15 +105,20 @@
 				<div class="page-head">
 					<div>
 						<h1>Monitoring History</h1>
-						<p>Daily sensor averages and device activity at Kuching Waterfront.</p>
+						<p id="page-sub">Daily sensor averages and device activity at Kuching Waterfront.</p>
 					</div>
-					<div class="range-switch" role="group" aria-label="Date range">
+					<div class="range-switch" data-mode="sample" role="group" aria-label="Date range">
 						<button type="button" data-range="7" aria-pressed="true">7 days</button>
 						<button type="button" data-range="14" aria-pressed="false">14 days</button>
 					</div>
+					<div class="range-switch" data-mode="live" role="group" aria-label="Time range" hidden>
+						<button type="button" data-hours="24" aria-pressed="true">24 hours</button>
+						<button type="button" data-hours="168" aria-pressed="false">7 days</button>
+						<button type="button" data-hours="720" aria-pressed="false">30 days</button>
+					</div>
 				</div>
 
-				<section class="tiles" id="history-tiles" aria-label="Summary for the selected range">
+				<section class="tiles" id="history-tiles" data-mode="sample" aria-label="Summary for the selected range">
 					<div class="tile"><span>Avg temperature</span><strong id="tile-temp">–</strong><small>daily average</small></div>
 					<div class="tile"><span>Avg humidity</span><strong id="tile-humidity">–</strong><small>daily average</small></div>
 					<div class="tile"><span>Fan uses</span><strong id="tile-fan">–</strong><small id="tile-fan-sub">in total</small></div>
@@ -121,7 +126,63 @@
 					<div class="tile"><span>Healthy days</span><strong id="tile-healthy">–</strong><small id="tile-healthy-sub">plant condition</small></div>
 				</section>
 
-				<section class="chart-grid">
+				<!-- Live mode: readings from the API (see monitoring.js) -->
+				<section class="tiles" data-mode="live" aria-label="Averages for the selected range" hidden>
+					<div class="tile"><span>Avg temperature</span><strong id="live-temp">–</strong><small>°C</small></div>
+					<div class="tile"><span>Avg humidity</span><strong id="live-humidity">–</strong><small>%</small></div>
+					<div class="tile"><span>Avg pressure</span><strong id="live-pressure">–</strong><small>hPa</small></div>
+					<div class="tile"><span>Avg precipitation</span><strong id="live-precip">–</strong><small>mm per reading</small></div>
+					<div class="tile"><span>Readings</span><strong id="live-count">–</strong><small id="live-count-sub">in this range</small></div>
+				</section>
+
+				<section class="chart-grid" data-mode="live" hidden>
+					<article class="card panel">
+						<h2 class="panel-title">Temperature</h2>
+						<p class="chart-sub">°C</p>
+						<div class="chart-box" id="live-temp-chart"></div>
+					</article>
+					<article class="card panel">
+						<h2 class="panel-title">Humidity</h2>
+						<p class="chart-sub">%</p>
+						<div class="chart-box" id="live-humidity-chart"></div>
+					</article>
+					<article class="card panel">
+						<h2 class="panel-title">Pressure</h2>
+						<p class="chart-sub">hPa</p>
+						<div class="chart-box" id="live-pressure-chart"></div>
+					</article>
+					<article class="card panel">
+						<h2 class="panel-title">Precipitation</h2>
+						<p class="chart-sub">mm</p>
+						<div class="chart-box" id="live-precip-chart"></div>
+					</article>
+				</section>
+
+				<section class="card panel history-card" data-mode="live" aria-labelledby="readings-title" hidden>
+					<h2 class="panel-title" id="readings-title">Readings</h2>
+					<p class="chart-sub" id="readings-sub">Newest first, in your local time</p>
+					<div class="table-wrap">
+						<table class="updates-table readings-table">
+							<thead>
+								<tr>
+									<th scope="col">Time</th>
+									<th scope="col" class="num">Temperature</th>
+									<th scope="col" class="num">Humidity</th>
+									<th scope="col" class="num">Pressure</th>
+									<th scope="col" class="num">Precipitation</th>
+								</tr>
+							</thead>
+							<tbody id="readings-body"></tbody>
+						</table>
+					</div>
+					<nav class="pager" id="readings-pager" aria-label="Readings pages" hidden>
+						<button type="button" class="chip" id="readings-prev">← Newer</button>
+						<span id="readings-page" aria-live="polite"></span>
+						<button type="button" class="chip" id="readings-next">Older →</button>
+					</nav>
+				</section>
+
+				<section class="chart-grid" data-mode="sample">
 					<article class="card panel">
 						<h2 class="panel-title">Temperature</h2>
 						<p class="chart-sub">Daily average, °C</p>
@@ -147,7 +208,7 @@
 					</article>
 				</section>
 
-				<section class="card panel history-card" aria-labelledby="history-title">
+				<section class="card panel history-card" data-mode="sample" aria-labelledby="history-title">
 					<h2 class="panel-title" id="history-title">Daily history</h2>
 					<p class="chart-sub" id="history-sub">Newest first</p>
 					<div class="table-wrap">
@@ -185,6 +246,8 @@
 			</main>
 		</div>
 
+		<script src="config.js"></script>
+		<script src="history-api.js"></script>
 		<script src="updates.js"></script>
 		<script src="monitoring.js"></script>
 	</body>

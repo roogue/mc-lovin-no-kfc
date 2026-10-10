@@ -52,9 +52,8 @@ window.PlantAPI = (function () {
 		});
 	}
 
-	// opts.via: "live" | "simulation" to pick a backend explicitly; otherwise the current data source decides
 	async function request(path, opts = {}) {
-		if (opts.via ? opts.via === "simulation" : viaSimulation()) return simRequest(path, opts);
+		if (viaSimulation()) return simRequest(path, opts);
 		const { method = "GET", body } = opts;
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -99,8 +98,6 @@ window.PlantAPI = (function () {
 		host: BASE.replace(/^https?:\/\//, ""),
 		pollMs: POLL_MS,
 		getSensor: () => request("/api/sensor"),
-		// The backend's overview (GET /) for "live" or "simulation", whatever the current data source is
-		getInfo: (via) => request("/", { via }),
 		getRelay: () => request("/api/relay"),
 		setRelay,
 	};

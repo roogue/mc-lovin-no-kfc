@@ -1,6 +1,6 @@
 // Disease page: current status, detection history and a care guide.
-// Detections come from data/disease-detections.json (sample data in public/data/); point DATA_URL at the
-// backend once the camera's disease model reports real detections.
+// Live mode: photo scans from the API (GET /api/disease via PlantHistory in history-api.js).
+// Sample mode: data/disease-detections.json (sample data in public/data/).
 
 (function () {
 	"use strict";
@@ -343,7 +343,169 @@
 	}
 	initScan();
 
+
+	/* ================= Live mode: photo scans from the API (GET /api/disease) ================= */
+	const SCAN_LABEL = {
+		healthy: "Healthy",
+		diseased: "Diseased",
+		pest_damage: "Pest damage",
+		nutrient_deficiency: "Nutrient deficiency",
+		other: "Other",
+	};
+	const titleText = (s) => String(s).replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+
+	// API scan → what this page shows
+	function fromScan(s) {
+		const status = String(s.status || "other");
+		const healthy = status === "healthy";
+		let recommendations = s.recommendations;
+		if (typeof recommendations === "string") recommendations = recommendations.trim() ? [recommendations] : [];
+		if (!Array.isArray(recommendations)) recommendations = [];
+		const n = PlantHistory.num;
+		return {
+			when: PlantHistory.parseUtc(s.scanned_at),
+			disease: s.issue || (healthy ? "No issue" : SCAN_LABEL[status] || titleText(status)),
+			status,
+			healthy,
+			confidence: s.confidence == null || s.confidence === "" ? null : n(s.confidence) != null ? `${Math.round(n(s.confidence))}%` : titleText(s.confidence),
+			health: n(s.health_percentage),
+			description: s.description ? String(s.description) : "",
+			recommendations: recommendations.map(String).filter(Boolean),
+		};
+	}
+
+	const scanDaysAgo = (date) => (date ? Math.round((startOfDay(new Date()) - startOfDay(date)) / 86400000) : null);
+	const scanAgo = (date) => (date ? agoText(scanDaysAgo(date)) : "at an unknown time");
+	const scanTime = (date) =>
+		date ? date.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+
+	function renderLiveBanner(scans) {
+		const latest = scans[0];
+		const lastIssue = scans.find((s) => !s.healthy);
+		if (latest && !latest.healthy) {
+			const health = latest.health != null ? ` Plant health ${Math.round(latest.health)}%.` : "";
+			return showAlertBanner(`${latest.disease} detected`, `Found by the latest scan, ${scanAgo(latest.when)}.${health} See the details below and the guide for what to do.`);
+		}
+		$("banner-title").textContent = latest ? "No active disease" : "No scans yet";
+		$("banner-text").textContent = !latest
+			? "Scan results will show up here once the plant has been checked."
+			: `The latest scan (${scanAgo(latest.when)}) found the plant healthy${latest.health != null ? `, ${Math.round(latest.health)}% plant health` : ""}.` +
+				(lastIssue ? ` Last issue: ${lastIssue.disease}, ${scanAgo(lastIssue.when)}.` : "");
+	}
+
+	function renderLiveTiles(scans) {
+		const issues = scans.filter((s) => !s.healthy);
+		$("tile-count").textContent = issues.filter((s) => scanDaysAgo(s.when) != null && scanDaysAgo(s.when) <= 13).length;
+		$("tile-count-sub").textContent = "issues, last 14 days";
+		if (issues.length) {
+			const n = scanDaysAgo(issues[0].when);
+			$("tile-since").textContent = n == null ? "–" : n <= 0 ? "Today" : `${n} day${n === 1 ? "" : "s"}`;
+			$("tile-since-sub").textContent = issues[0].disease;
+			const counts = {};
+			issues.forEach((s) => (counts[s.disease] = (counts[s.disease] || 0) + 1));
+			const [name, count] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+			$("tile-common").textContent = name;
+			$("tile-common-sub").textContent = `${count} scan${count === 1 ? "" : "s"}`;
+		} else {
+			$("tile-since").textContent = "–";
+			$("tile-since-sub").textContent = scans.length ? "no issues found" : "";
+			$("tile-common").textContent = "None";
+			$("tile-common-sub").textContent = "";
+		}
+	}
+
+	function scanDetails(s) {
+		if (!s.description && !s.recommendations.length) return null;
+		const details = document.createElement("details");
+		details.className = "scan-details";
+		const summary = document.createElement("summary");
+		summary.textContent = "Details";
+		details.appendChild(summary);
+		if (s.description) {
+			const p = document.createElement("p");
+			p.textContent = s.description;
+			details.appendChild(p);
+		}
+		if (s.recommendations.length) {
+			const ol = document.createElement("ol");
+			s.recommendations.forEach((r) => {
+				const li = document.createElement("li");
+				li.textContent = r;
+				ol.appendChild(li);
+			});
+			details.appendChild(ol);
+		}
+		return details;
+	}
+
+	function renderLiveTable(scans) {
+		const body = $("detections-body");
+		if (!scans.length) return tableMessage("No scans yet.");
+		body.replaceChildren(
+			...scans.map((s) => {
+				const tr = document.createElement("tr");
+				const time = document.createElement("time");
+				if (s.when) time.dateTime = s.when.toISOString();
+				time.textContent = scanTime(s.when);
+				const issue = document.createElement("td");
+				issue.className = "scan-issue-cell";
+				issue.append(tag("scan-issue-name", s.disease));
+				const details = scanDetails(s);
+				if (details) issue.appendChild(details);
+				tr.append(
+					cell(time),
+					issue,
+					cell(tag(`detection-status is-${s.healthy ? "resolved" : "active"}`, SCAN_LABEL[s.status] || titleText(s.status))),
+					cell(s.confidence || "—", "num"),
+					cell(s.health != null ? `${Math.round(s.health)}%` : "—", "num"),
+				);
+				return tr;
+			}),
+		);
+	}
+
+	function tableMessage(text) {
+		const td = cell(text, "updates-message");
+		td.colSpan = 5;
+		const tr = document.createElement("tr");
+		tr.appendChild(td);
+		$("detections-body").replaceChildren(tr);
+	}
+
+	function loadLive() {
+		// Table columns for scans
+		const heads = document.querySelectorAll(".detections-table thead th");
+		["Date", "Issue", "Status", "Confidence", "Health"].forEach((text, i) => {
+			if (!heads[i]) return;
+			heads[i].textContent = text;
+			heads[i].classList.toggle("num", i >= 3);
+		});
+		$("detections-sub").textContent = "From photo scans, newest first, in your local time";
+		$("banner-title").textContent = "Loading the latest scans…";
+		tableMessage("Loading scans…");
+
+		PlantHistory.disease(50)
+			.then((data) => {
+				const scans = (Array.isArray(data && data.scans) ? data.scans : [])
+					.map(fromScan)
+					.sort((a, b) => (b.when ? b.when.getTime() : 0) - (a.when ? a.when.getTime() : 0));
+				renderLiveBanner(scans);
+				renderLiveTiles(scans);
+				renderLiveTable(scans);
+				renderGuide(scans.filter((s) => !s.healthy));
+			})
+			.catch((err) => {
+				console.warn("Could not load disease scans:", err);
+				$("banner-title").textContent = "Couldn't load scans";
+				$("banner-text").textContent = err.message;
+				$("disease-banner").classList.add("is-muted");
+				tableMessage(err.message);
+			});
+	}
+
 	renderGuide([]);
+
+	if (window.PlantHistory && PlantHistory.isLive()) return loadLive();
 
 	fetch(DATA_URL, { cache: "no-store" })
 		.then((res) => {

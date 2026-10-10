@@ -212,7 +212,7 @@ svg {
   border-radius: var(--radius);
 }
 
-/* ----- Data source chip + "ESP32 not connected" modal ----- */
+/* ----- Data source chip ----- */
 .greeting-row {
   display: flex;
   flex-wrap: wrap;
@@ -276,260 +276,6 @@ svg {
 
 .source-chip[data-state="disconnected"] .dot {
   background: #C9573C;
-}
-
-.offline-modal {
-  width: min(440px, calc(100vw - 32px));
-  margin: auto;
-  padding: 28px 28px 24px;
-  border: 0;
-  border-radius: 20px;
-  background: var(--bg);
-  color: var(--text);
-  text-align: center;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
-}
-
-.offline-modal[open] {
-  animation: cctv-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.offline-modal::backdrop {
-  background: rgba(15, 17, 21, 0.45);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
-}
-
-.offline-art {
-  display: grid;
-  place-items: center;
-  width: 84px;
-  height: 84px;
-  margin: 0 auto 14px;
-  border-radius: 50%;
-  background: #FFF1EE;
-}
-
-.offline-art svg {
-  width: 52px;
-  height: 52px;
-  fill: none;
-  stroke: #B4432B;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.offline-art .plug-loose {
-  animation: plug-wiggle 2.4s ease-in-out infinite;
-}
-
-.offline-art .slash {
-  stroke-dasharray: 52;
-  stroke-dashoffset: 52;
-  animation: slash-draw 0.6s 0.2s ease-out forwards;
-}
-
-.offline-modal h2 {
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.offline-modal p {
-  margin-top: 8px;
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: var(--text-muted);
-}
-
-.offline-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 20px;
-}
-
-.offline-btn {
-  padding: 9px 16px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.2s ease;
-}
-
-.offline-btn:hover {
-  border-color: var(--green);
-}
-
-.offline-btn:active {
-  transform: scale(0.96);
-}
-
-.offline-btn.primary {
-  border-color: var(--green);
-  background: var(--green);
-  color: #FFFFFF;
-}
-
-.offline-btn.ghost {
-  border-color: transparent;
-  color: var(--text-muted);
-}
-
-.offline-btn:focus-visible {
-  outline: 2px solid var(--green);
-  outline-offset: 2px;
-}
-
-@keyframes plug-wiggle {
-  0%, 100% { transform: translateX(0); }
-  50%      { transform: translateX(3px); }
-}
-
-@keyframes slash-draw {
-  to { stroke-dashoffset: 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .offline-art .plug-loose,
-  .offline-modal[open] {
-    animation: none;
-  }
-
-  .offline-art .slash {
-    animation: none;
-    stroke-dashoffset: 0;
-  }
-}
-
-/* source chip as a menu button */
-.source-menu {
-  position: relative;
-}
-
-button.source-chip {
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-button.source-chip:focus-visible {
-  outline: 2px solid var(--green);
-  outline-offset: 2px;
-}
-
-.source-chev {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: transform 0.2s ease;
-}
-
-.source-chip[aria-expanded="true"] .source-chev {
-  transform: rotate(180deg);
-}
-
-.source-options {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 260px;
-  padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--bg);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
-}
-
-.source-options[hidden] {
-  display: none;
-}
-
-.source-options button {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  padding: 8px 10px 8px 30px;
-  position: relative;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.source-options button:hover,
-.source-options button:focus-visible {
-  background: #F5F5F5;
-  outline: none;
-}
-
-.source-options button strong {
-  font-size: 13px;
-}
-
-.source-options button small {
-  font-size: 11.5px;
-  color: var(--text-muted);
-}
-
-.source-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 3px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.source-status:empty {
-  display: none;
-}
-
-.source-status::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #D1D5DB;
-}
-
-.source-status[data-state="ok"]      { color: var(--green-dark); }
-.source-status[data-state="ok"]::before      { background: var(--green); }
-.source-status[data-state="partial"] { color: #8A5A00; }
-.source-status[data-state="partial"]::before { background: #E0A021; }
-.source-status[data-state="down"]    { color: #B4432B; }
-.source-status[data-state="down"]::before    { background: #C9573C; }
-
-.source-options button[aria-checked="true"]::before {
-  content: "";
-  position: absolute;
-  left: 11px;
-  top: 13px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--green);
 }
 
 /* ----- toasts ----- */
@@ -1493,47 +1239,6 @@ button.source-chip:focus-visible {
   transition: width 0.9s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.5s ease;
 }
 
-.state-switch {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 999px;
-}
-
-.state-switch button {
-  flex: 1;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  opacity: 0.7;
-  cursor: pointer;
-  transition: background 0.25s ease, color 0.25s ease, opacity 0.25s ease, transform 0.15s ease;
-}
-
-.state-switch button:hover {
-  opacity: 1;
-}
-
-.state-switch button:active {
-  transform: scale(0.96);
-}
-
-.state-switch button[aria-pressed="true"] {
-  background: var(--state-color);
-  color: #FFFFFF;
-  opacity: 1;
-}
-
-.state-switch button:focus-visible {
-  outline: 2px solid var(--state-color);
-  outline-offset: 2px;
-}
-
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.35; }
@@ -1680,6 +1385,7 @@ button.source-chip:focus-visible {
 }
 
 .table-wrap {
+  position: relative; /* keeps visually hidden header labels inside the scroll box */
   overflow-x: auto;
 }
 
@@ -1766,6 +1472,7 @@ button.source-chip:focus-visible {
 .condition-healthy  { color: #23854A; }
 .condition-sick     { color: #A86A00; }
 .condition-withered { color: #B4432B; }
+.condition-none     { color: var(--text-muted); font-weight: 500; }
 
 .updates-table .disease.is-none {
   color: var(--text-muted);
@@ -2358,57 +2065,536 @@ button.source-chip:focus-visible {
   }
 }
 
-/* Mobile: sidebar becomes an icon rail by default; checking the toggle expands it over the content */
+/* ========== Phones (≤ 720px) ========== */
+
+/* AssistiveTouch controls (assistive.js) only exist on phones */
+.assist-btn,
+.assist-backdrop,
+.assist-tools {
+  display: none;
+}
+
 @media (max-width: 720px) {
-  .sidebar {
-    position: fixed;
-    left: 0;
-    width: var(--sidebar-rail);
+  :root {
+    --tabbar-height: calc(64px + env(safe-area-inset-bottom));
   }
 
-  .logo-text,
-  .nav-label {
-    opacity: 0;
-  }
-
-  .toggle-btn svg {
-    transform: rotate(180deg);
-  }
-
+  /* ----- Sidebar becomes a bottom tab bar ----- */
+  .sidebar,
   .nav-toggle:checked + .app .sidebar {
-    width: var(--sidebar-full);
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+    position: fixed;
+    inset: auto 0 0 0;
+    width: 100%;
+    height: var(--tabbar-height);
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    border-right: 0;
+    border-top: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.92);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    backdrop-filter: blur(16px) saturate(1.4);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.04);
+    transition: none;
+    z-index: 40;
   }
 
-  .nav-toggle:checked + .app .logo-text,
+  .sidebar-header {
+    display: none;
+  }
+
+  .nav {
+    flex-direction: row;
+    gap: 2px;
+    height: 100%;
+  }
+
+  .nav-item {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 4px 2px;
+    border-radius: 12px;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .nav-item svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .nav-label,
   .nav-toggle:checked + .app .nav-label {
     opacity: 1;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .nav-toggle:checked + .app .toggle-btn svg {
-    transform: rotate(0deg);
+  /* Long labels get a short tab name (data-short on the link) */
+  .nav-item[data-short] .nav-label {
+    display: none;
+  }
+
+  .nav-item[data-short]::after {
+    content: attr(data-short);
+  }
+
+  .nav-item:hover {
+    background: transparent;
+  }
+
+  .nav-item.active {
+    background: transparent;
+    color: var(--green-dark);
+  }
+
+  .nav-item.active svg {
+    stroke-width: 2.2;
+  }
+
+  .nav-item:active svg {
+    transform: scale(0.9);
   }
 
   .main {
-    margin-left: var(--sidebar-rail);
-    padding: 24px 16px 32px 28px;
+    margin-left: 0;
+    padding: 20px 16px calc(var(--tabbar-height) + 28px);
   }
 
-  .chart .axis-label {
-    font-size: 20px;
+  .greeting-row {
+    margin-bottom: 16px;
   }
 
+  /* Toasts sit above the tab bar, full width */
+  .toast-region {
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--tabbar-height) + 12px);
+    align-items: stretch;
+  }
+
+  /* ----- Stat cards: compact 2 × 2 ----- */
+  .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .stat-card {
+    min-height: 118px;
+    padding: 12px 14px;
+  }
+
+  .stat-value {
+    font-size: 34px;
+  }
+
+  .stat-sub {
+    font-size: 11px;
+  }
+
+  .weather-body {
+    gap: 6px;
+  }
+
+  .chart .axis-label,
   .chart .value-label {
     font-size: 20px;
   }
 
-  .stat-value {
-    font-size: 40px;
+  /* ----- Latest updates: one small card per day instead of a wide table ----- */
+  .daily-table {
+    min-width: 0;
+  }
+
+  .daily-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .daily-table,
+  .daily-table tbody {
+    display: block;
+  }
+
+  .daily-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .daily-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .daily-table tbody tr:hover {
+    background: transparent;
+  }
+
+  .daily-table td,
+  .daily-table td.num,
+  .daily-table td:first-child,
+  .daily-table td:last-child {
+    padding: 0;
+    border: 0;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .daily-table td:nth-child(1) {
+    grid-column: 1 / 4;
+    font-weight: 600;
+  }
+
+  .daily-table td:nth-child(2) {
+    grid-column: 4 / 6;
+    justify-self: end;
+  }
+
+  .daily-table td:nth-child(n + 3):nth-child(-n + 7)::before {
+    display: block;
+    margin-bottom: 1px;
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  .daily-table td:nth-child(3)::before { content: "Avg temp"; }
+  .daily-table td:nth-child(4)::before { content: "Humidity"; }
+  .daily-table td:nth-child(5)::before { content: "Precip."; }
+  .daily-table td:nth-child(6)::before { content: "Fan used"; }
+  .daily-table td:nth-child(7)::before { content: "Watered"; }
+
+  .daily-table td:nth-child(8) {
+    grid-column: 1 / -1;
+    font-size: 12px;
+  }
+
+  .daily-table td:nth-child(8)::before {
+    content: "Disease: ";
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .daily-table td.updates-message {
+    grid-column: 1 / -1;
+  }
+
+  .daily-table td.updates-message::before {
+    content: none;
+  }
+
+  /* ----- CCTV fills the phone screen ----- */
+  .cctv {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    inset: 0;
+  }
+
+  .cctv-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .cctv-header {
+    padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+  }
+
+  .cctv-close {
+    width: 44px;
+    height: 44px;
+  }
+
+  .cctv-screen {
+    flex: 1;
+    min-height: 0;
+    aspect-ratio: auto;
+    max-height: none;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .cctv-media {
+    object-fit: contain;
+  }
+
+  /* ----- Controls: AssistiveTouch button + panel (assistive.js) ----- */
+  .assist-btn {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 50;
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    border: 0;
+    border-radius: 17px;
+    background: rgba(28, 30, 34, 0.62);
+    -webkit-backdrop-filter: blur(14px) saturate(1.6);
+    backdrop-filter: blur(14px) saturate(1.6);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+    color: #FFFFFF;
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.15), opacity 0.4s ease, background 0.3s ease;
+  }
+
+  .assist-btn.is-dragging {
+    transition: opacity 0.2s ease;
+    background: rgba(28, 30, 34, 0.75);
+  }
+
+  .assist-btn.is-idle {
+    opacity: 0.5;
+  }
+
+  .assist-btn:focus-visible {
+    outline: 3px solid var(--green);
+    outline-offset: 3px;
+    opacity: 1;
+  }
+
+  /* Three concentric rings, like the iOS button */
+  .assist-rings {
+    grid-area: 1 / 1;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.22);
+    box-shadow: inset 0 0 0 5px rgba(255, 255, 255, 0.18), inset 0 0 0 10px rgba(255, 255, 255, 0.28);
+    transition: transform 0.25s ease, background 0.3s ease;
+  }
+
+  .assist-rings::after {
+    content: "";
+    display: block;
+    width: 16px;
+    height: 16px;
+    margin: 10px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  .assist-btn.is-open .assist-rings {
+    transform: scale(0.86);
+  }
+
+  /* Watering: blue button with the countdown in the middle */
+  .assist-btn.is-watering {
+    background: rgba(31, 111, 168, 0.78);
+  }
+
+  .assist-btn.is-watering .assist-rings {
+    background: rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.55);
+    animation: assist-pulse 1.6s ease-in-out infinite;
+  }
+
+  .assist-btn.is-watering .assist-rings::after {
+    display: none;
+  }
+
+  .assist-time {
+    grid-area: 1 / 1;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  /* Fan on: small spinning fan badge */
+  .assist-fan {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    display: none;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border: 2px solid #FFFFFF;
+    border-radius: 50%;
+    background: #39B8F0;
+  }
+
+  .assist-fan svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: #FFFFFF;
+    stroke-width: 2;
+    stroke-linecap: round;
+    animation: assist-spin 1.1s linear infinite;
+  }
+
+  .assist-btn.is-fan .assist-fan {
+    display: grid;
+  }
+
+  /* Automate on: green dot */
+  .assist-auto {
+    position: absolute;
+    bottom: -3px;
+    left: -3px;
+    display: none;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #FFFFFF;
+    border-radius: 50%;
+    background: var(--green);
+  }
+
+  .assist-btn.is-auto .assist-auto {
+    display: block;
+  }
+
+  .assist-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    display: block;
+    background: rgba(15, 17, 21, 0.28);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+    opacity: 0;
+    transition: opacity 0.22s ease;
+  }
+
+  .assist-backdrop[hidden] {
+    display: none;
+  }
+
+  .assist-backdrop.is-open {
+    opacity: 1;
+  }
+
+  /* The Controls card leaves the page and becomes the panel */
+  .controls-card {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--tabbar-height) + 12px);
+    z-index: 55;
+    display: flex;
+    max-height: calc(100dvh - var(--tabbar-height) - 40px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 0;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.96);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5);
+    backdrop-filter: blur(20px) saturate(1.5);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.25);
+    flex-direction: column;
+    align-items: stretch;
+    transform-origin: var(--assist-origin, 100% 100%);
+    transform: scale(0.15);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.25, 1.08), opacity 0.2s ease, visibility 0s linear 0.3s;
+  }
+
+  .controls-card.is-assist-open {
+    transform: none;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: transform 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.08), opacity 0.18s ease, visibility 0s;
+  }
+
+  .controls-card:focus {
+    outline: none;
+  }
+
+  .assist-tools {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .assist-tool {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 50%;
+    background: #F3F4F6;
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .assist-tool:active {
+    transform: scale(0.92);
+  }
+
+  .assist-tool:focus-visible {
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
+  }
+
+  .assist-tool svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .controls-card .panel-title {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+  }
+
+  .controls-card .timer {
+    width: 104px;
+    height: 104px;
   }
 }
 
-@media (max-width: 480px) {
-  .cards {
-    grid-template-columns: 1fr;
+@keyframes assist-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes assist-pulse {
+  50% { transform: scale(0.9); }
+}
+
+@media (max-width: 720px) and (prefers-reduced-motion: reduce) {
+  .assist-btn,
+  .controls-card,
+  .controls-card.is-assist-open,
+  .assist-backdrop {
+    transition: none;
+  }
+
+  .assist-fan svg,
+  .assist-btn.is-watering .assist-rings {
+    animation: none;
   }
 }

@@ -76,6 +76,15 @@
   outline-offset: 2px;
 }
 
+/* e.g. Pause while the simulation is off */
+.sim-btn:disabled {
+  border-color: var(--border);
+  background: #F3F4F6;
+  color: var(--text-muted);
+  cursor: not-allowed;
+  transform: none;
+}
+
 .sim-warning {
   margin-bottom: 16px;
   padding: 10px 14px;
@@ -88,6 +97,37 @@
 
 .sim-warning[hidden] {
   display: none;
+}
+
+/* ----- "Simulation off" (data source is Sample or Live API) ----- */
+.sim-idle-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-bottom: 16px;
+  padding: 12px 14px 12px 16px;
+  border: 1px solid #D7DCE3;
+  border-radius: 12px;
+  background: #F6F7F9;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.sim-idle-note[hidden] {
+  display: none;
+}
+
+.sim-idle-note p {
+  flex: 1 1 260px;
+}
+
+body.sim-idle .sim-grid,
+body.sim-idle .sim-backend,
+body.sim-idle .serial-card,
+body.sim-idle .flow {
+  opacity: 0.55;
 }
 
 /* ----- layout ----- */
@@ -691,7 +731,7 @@ body.sim-paused .relays {
 @media (max-width: 1180px) {
   .sim-top,
   .sim-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

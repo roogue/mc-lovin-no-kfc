@@ -1,5 +1,8 @@
-// Monitoring History page: summary tiles, charts and the full daily table for the last 7 or 14 days.
-// Uses the same data as the overview table (data/daily-updates.json, loaded by PlantDaily in updates.js).
+// Monitoring History page.
+// Live mode: readings from the API (PlantHistory in history-api.js): averages, four time charts from
+// GET /api/history and a paged table from GET /api/readings, for the last 24 hours, 7 days or 30 days.
+// Sample mode: summary tiles, charts and the full daily table for the last 7 or 14 days, from the same sample data
+// as the overview table (data/daily-updates.json, loaded by PlantDaily in updates.js).
 
 (function () {
 	"use strict";
@@ -21,7 +24,7 @@
 	];
 
 	const els = {
-		buttons: document.querySelectorAll(".range-switch button"),
+		buttons: document.querySelectorAll('.range-switch[data-mode="sample"] button'),
 		temp: $("temp-chart"),
 		humidity: $("humidity-chart"),
 		devices: $("device-chart"),
@@ -266,6 +269,272 @@
 		clearTimeout(resizeTimer);
 		resizeTimer = setTimeout(() => allDays.length && renderCharts(), 150);
 	});
+
+	/* ================= Live mode: readings from the API ================= */
+	const LIVE_SERIES = [
+		{ box: "live-temp-chart", key: "temperature", label: "Temperature", unit: "°C", decimals: 1, color: "#E0695D" },
+		{ box: "live-humidity-chart", key: "humidity", label: "Humidity", unit: "%", decimals: 0, color: "#3D9FE0" },
+		{ box: "live-pressure-chart", key: "pressure", label: "Pressure", unit: " hPa", decimals: 1, color: "#7C64C8" },
+		{ box: "live-precip-chart", key: "precipitation", label: "Precipitation", unit: " mm", decimals: 1, color: "#2B88CC" },
+	];
+	const READING_KEYS = ["temperature", "humidity", "pressure", "precipitation"];
+	const PAGE_SIZE = 25;
+	const RANGE_TEXT = { 24: "24 hours", 168: "7 days", 720: "30 days" };
+
+	const live = { hours: 24, offset: 0, history: null, historyReq: 0, readingsReq: 0 };
+	const rangeText = () => RANGE_TEXT[live.hours] || `${live.hours} hours`;
+
+	const timeLabel = (sec) => {
+		const d = new Date(sec * 1000);
+		return live.hours <= 24
+			? d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+			: d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+	};
+	const fullTime = (date) =>
+		date.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+	const axisNumber = (v) => String(Number(v.toFixed(4)));
+
+	function boxMessage(box, text) {
+		box.replaceChildren();
+		box.textContent = text;
+		box.classList.add("is-empty");
+	}
+
+	// One reading over time. Gaps in the data (no readings for a while) break the line instead of bridging it.
+	function timeChart(box, { points, start, end, bucket }, s) {
+		const pts = points.filter((p) => p[s.key] != null);
+		if (!pts.length) return boxMessage(box, `No ${s.label.toLowerCase()} readings in the last ${rangeText()}`);
+		box.classList.remove("is-empty");
+
+		const { W, IW } = size(box);
+		const values = pts.map((p) => p[s.key]);
+		const lo = Math.min(...values);
+		const hi = Math.max(...values);
+		const pad = (hi - lo) * 0.15 || 1;
+		const scale = niceScale(lo - pad, hi + pad);
+		const x = (t) => PAD.left + ((t - start) / (end - start || 1)) * IW;
+		const y = (v) => PAD.top + IH - ((v - scale.min) / (scale.max - scale.min)) * IH;
+		const fmt = (v) => `${v.toFixed(s.decimals)}${s.unit}`;
+
+		const svg = svgEl("svg", {
+			viewBox: `0 0 ${W} ${H}`,
+			class: "mchart",
+			role: "img",
+			"aria-label": `${s.label} over the last ${rangeText()}, between ${fmt(lo)} and ${fmt(hi)}, latest ${fmt(values.at(-1))}. Exact values are in the Readings table.`,
+		});
+		for (let v = scale.min; v <= scale.max + 1e-9; v += scale.step) {
+			svg.append(
+				svgEl("line", { x1: PAD.left, x2: W - PAD.right, y1: y(v), y2: y(v), class: "grid" }),
+				svgEl("text", { x: PAD.left - 8, y: y(v) + 4, "text-anchor": "end", class: "axis" }, axisNumber(v)),
+			);
+		}
+		const ticks = Math.max(2, Math.min(6, Math.floor(IW / 72)));
+		for (let i = 0; i <= ticks; i++) {
+			const t = start + ((end - start) * i) / ticks;
+			const anchor = i === 0 ? "start" : i === ticks ? "end" : "middle";
+			svg.append(svgEl("text", { x: x(t), y: H - 8, "text-anchor": anchor, class: "axis" }, timeLabel(t)));
+		}
+
+		const crosshair = svgEl("line", { y1: PAD.top, y2: PAD.top + IH, class: "crosshair", visibility: "hidden" });
+		svg.append(crosshair);
+		let d = "";
+		pts.forEach((p, i) => {
+			const gap = i > 0 && p.t - pts[i - 1].t > bucket * 2.5;
+			d += `${i === 0 || gap ? "M" : "L"}${x(p.t).toFixed(1)},${y(p[s.key]).toFixed(1)} `;
+		});
+		svg.append(svgEl("path", { d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+		const last = pts.at(-1);
+		svg.append(svgEl("circle", { cx: x(last.t), cy: y(last[s.key]), r: 3.5, fill: s.color }));
+		svg.append(
+			svgEl(
+				"text",
+				{ x: Math.min(x(last.t), W - PAD.right), y: Math.max(PAD.top - 6, y(last[s.key]) - 10), "text-anchor": "end", class: "value" },
+				fmt(last[s.key]),
+			),
+		);
+		const focus = svgEl("circle", { r: 5, fill: "#FFFFFF", stroke: s.color, "stroke-width": 2, visibility: "hidden" });
+		svg.append(focus);
+
+		// Hover: crosshair + tooltip on the nearest time slot
+		const hit = svgEl("rect", { x: PAD.left - 10, y: PAD.top, width: IW + 20, height: IH, fill: "transparent" });
+		svg.append(hit);
+		box.replaceChildren(svg);
+		const tip = tooltip(box);
+		hit.addEventListener("pointermove", (e) => {
+			const t = start + ((pointerX(svg, W, e) - PAD.left) / IW) * (end - start);
+			let best = pts[0];
+			for (const p of pts) if (Math.abs(p.t - t) < Math.abs(best.t - t)) best = p;
+			const px = x(best.t);
+			const py = y(best[s.key]);
+			crosshair.setAttribute("x1", px);
+			crosshair.setAttribute("x2", px);
+			crosshair.setAttribute("visibility", "visible");
+			focus.setAttribute("cx", px);
+			focus.setAttribute("cy", py);
+			focus.setAttribute("visibility", "visible");
+			const lines = [fullTime(new Date(best.t * 1000)), `${s.label}: ${fmt(best[s.key])}`];
+			if (best.samples > 1) lines.push(`Average of ${best.samples} readings`);
+			tip.show(svg, W, px, py, lines);
+		});
+		hit.addEventListener("pointerleave", () => {
+			crosshair.setAttribute("visibility", "hidden");
+			focus.setAttribute("visibility", "hidden");
+			tip.hide();
+		});
+	}
+
+	// Averages weighted by how many readings each time slot holds
+	function weightedAvg(points, key) {
+		let total = 0;
+		let weight = 0;
+		points.forEach((p) => {
+			if (p[key] == null) return;
+			const w = p.samples || 1;
+			total += p[key] * w;
+			weight += w;
+		});
+		return weight ? total / weight : null;
+	}
+
+	function renderLiveTiles() {
+		const h = live.history;
+		const ids = ["live-temp", "live-humidity", "live-pressure", "live-precip", "live-count"];
+		if (!h) return ids.forEach((id) => ($(id).textContent = "–"));
+		const set = (id, v, decimals) => ($(id).textContent = v == null ? "–" : v.toFixed(decimals));
+		set("live-temp", weightedAvg(h.points, "temperature"), 1);
+		set("live-humidity", weightedAvg(h.points, "humidity"), 0);
+		set("live-pressure", weightedAvg(h.points, "pressure"), 1);
+		set("live-precip", weightedAvg(h.points, "precipitation"), 2);
+		$("live-count").textContent = h.points.reduce((n, p) => n + (p.samples || 0), 0).toLocaleString("en-GB");
+		$("live-count-sub").textContent = `in the last ${rangeText()}`;
+	}
+
+	function renderLiveCharts() {
+		if (live.history) LIVE_SERIES.forEach((s) => timeChart($(s.box), live.history, s));
+	}
+
+	async function loadHistory() {
+		const req = ++live.historyReq;
+		live.history = null;
+		renderLiveTiles();
+		LIVE_SERIES.forEach((s) => boxMessage($(s.box), "Loading…"));
+		try {
+			const data = await PlantHistory.history(live.hours);
+			if (req !== live.historyReq) return; // a newer range was picked meanwhile
+			const points = (Array.isArray(data && data.points) ? data.points : [])
+				.map((p) => {
+					const point = { t: Number(p.t), samples: Number(p.samples) || 0 };
+					READING_KEYS.forEach((k) => (point[k] = PlantHistory.num(p[k])));
+					return point;
+				})
+				.filter((p) => Number.isFinite(p.t))
+				.sort((a, b) => a.t - b.t);
+			const end = Date.now() / 1000;
+			live.history = { points, start: end - live.hours * 3600, end, bucket: Number(data.bucket_seconds) || (live.hours * 3600) / 300 };
+			renderLiveTiles();
+			if (!points.length) LIVE_SERIES.forEach((s) => boxMessage($(s.box), `No readings in the last ${rangeText()} yet`));
+			else renderLiveCharts();
+		} catch (err) {
+			if (req !== live.historyReq) return;
+			console.warn("Could not load history:", err);
+			LIVE_SERIES.forEach((s) => boxMessage($(s.box), err.message));
+		}
+	}
+
+	const readingsBody = $("readings-body");
+	const pager = $("readings-pager");
+	const valueCell = (v, decimals, unit) => {
+		const td = document.createElement("td");
+		td.className = "num";
+		td.textContent = v == null ? "—" : `${v.toFixed(decimals)}${unit}`;
+		return td;
+	};
+
+	function readingRow(r) {
+		const tr = document.createElement("tr");
+		const td = document.createElement("td");
+		const when = PlantHistory.parseUtc(r.recorded_at);
+		const time = document.createElement("time");
+		if (when) time.dateTime = when.toISOString();
+		time.textContent = when
+			? when.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+			: String(r.recorded_at || "—");
+		td.appendChild(time);
+		const n = PlantHistory.num;
+		tr.append(
+			td,
+			valueCell(n(r.temperature), 1, "°C"),
+			valueCell(n(r.humidity), 0, "%"),
+			valueCell(n(r.pressure), 1, " hPa"),
+			valueCell(n(r.precipitation), 1, " mm"),
+		);
+		return tr;
+	}
+
+	async function loadReadings() {
+		const req = ++live.readingsReq;
+		PlantDaily.showMessage(readingsBody, "Loading readings…");
+		pager.hidden = true;
+		try {
+			const data = await PlantHistory.readings(live.hours, PAGE_SIZE, live.offset);
+			if (req !== live.readingsReq) return;
+			const rows = Array.isArray(data && data.readings) ? data.readings : [];
+			const total = Number(data && data.total) || 0;
+			if (!rows.length) {
+				PlantDaily.showMessage(readingsBody, live.offset ? "No more readings." : `No readings in the last ${rangeText()} yet.`);
+			} else {
+				readingsBody.replaceChildren(...rows.map(readingRow));
+			}
+			$("readings-sub").textContent = total
+				? `${total.toLocaleString("en-GB")} readings in the last ${rangeText()}, newest first, in your local time`
+				: "Newest first, in your local time";
+			pager.hidden = total <= PAGE_SIZE && live.offset === 0;
+			$("readings-page").textContent = rows.length
+				? `${(live.offset + 1).toLocaleString("en-GB")}–${(live.offset + rows.length).toLocaleString("en-GB")} of ${total.toLocaleString("en-GB")}`
+				: "";
+			$("readings-prev").disabled = live.offset === 0;
+			$("readings-next").disabled = live.offset + rows.length >= total;
+		} catch (err) {
+			if (req !== live.readingsReq) return;
+			console.warn("Could not load readings:", err);
+			PlantDaily.showMessage(readingsBody, err.message);
+		}
+	}
+
+	function initLive() {
+		$("page-sub").textContent = "Readings from the ESP32 through the Plant Check API, in your local time.";
+		const buttons = document.querySelectorAll('.range-switch[data-mode="live"] button');
+		buttons.forEach((b) =>
+			b.addEventListener("click", () => {
+				if (Number(b.dataset.hours) === live.hours) return;
+				live.hours = Number(b.dataset.hours);
+				live.offset = 0;
+				buttons.forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+				loadHistory();
+				loadReadings();
+			}),
+		);
+		$("readings-prev").addEventListener("click", () => {
+			live.offset = Math.max(0, live.offset - PAGE_SIZE);
+			loadReadings();
+		});
+		$("readings-next").addEventListener("click", () => {
+			live.offset += PAGE_SIZE;
+			loadReadings();
+		});
+		let liveResize = null;
+		window.addEventListener("resize", () => {
+			clearTimeout(liveResize);
+			liveResize = setTimeout(() => live.history && live.history.points.length && renderLiveCharts(), 150);
+		});
+		loadHistory();
+		loadReadings();
+	}
+
+	/* ---------- start: live or sample ---------- */
+	const isLive = !!(window.PlantHistory && PlantHistory.isLive());
+	document.querySelectorAll("main [data-mode]").forEach((el) => (el.hidden = el.dataset.mode !== (isLive ? "live" : "sample")));
+	if (isLive) return initLive();
 
 	PlantDaily.showMessage(els.body, "Loading history…");
 	PlantDaily.load()

@@ -1,6 +1,7 @@
 // Plant status banner under "Hello Admin!".
 // Follows the plant's condition ('plant:state' from plant.js), live sensor readings ('sensor:update' from sensors.js)
-// and the latest disease detection (data/disease-detections.json). Preview a status with ?alert=danger (or healthy / sick / withered).
+// and the latest disease detection (live: the latest scan with an issue from GET /api/disease; sample:
+// data/disease-detections.json). Preview a status with ?alert=danger (or healthy / sick / withered).
 
 (function () {
 	"use strict";
@@ -28,7 +29,7 @@
 	let plantState = (plantCard && plantCard.dataset.state) || "healthy";
 	let health = null;
 	let reading = null;
-	let disease = null; // latest detection: { disease, confidence, date }
+	let disease = null; // latest detection: { disease, confidence (number, or text like "high"), date }
 	let current = null;
 	let actionsKey = "";
 
@@ -55,7 +56,8 @@
 			};
 		}
 		if (status === "sick") {
-			const seen = disease && disease.confidence ? ` (${disease.confidence}% sure)` : "";
+			const conf = disease && disease.confidence;
+			const seen = conf == null || conf === "" ? "" : Number.isFinite(Number(conf)) ? ` (${Math.round(Number(conf))}% sure)` : ` (${String(conf).toLowerCase()} confidence)`;
 			return {
 				eyebrow: "Health alert",
 				title: `Your plant has ${diseaseName()}`,
@@ -200,15 +202,28 @@
 		render();
 	});
 
-	fetch("data/disease-detections.json", { cache: "no-store" })
-		.then((res) => (res.ok ? res.json() : null))
-		.then((data) => {
-			const list = (data && Array.isArray(data.detections) ? data.detections : []).slice();
-			list.sort((a, b) => b.date.localeCompare(a.date));
-			disease = list[0] || null;
-			render();
-		})
-		.catch(() => {}); // keep the generic wording if detections can't load
+	if (window.PlantHistory && PlantHistory.isLive()) {
+		PlantHistory.disease(20)
+			.then((data) => {
+				const scans = (data && Array.isArray(data.scans) ? data.scans : [])
+					.filter((s) => s.status && s.status !== "healthy")
+					.sort((a, b) => String(b.scanned_at).localeCompare(String(a.scanned_at)));
+				const s = scans[0];
+				disease = s ? { disease: s.issue || String(s.status).replace(/_/g, " "), confidence: s.confidence, date: s.scanned_at } : null;
+				render();
+			})
+			.catch(() => {}); // keep the generic wording if scans can't load
+	} else {
+		fetch("data/disease-detections.json", { cache: "no-store" })
+			.then((res) => (res.ok ? res.json() : null))
+			.then((data) => {
+				const list = (data && Array.isArray(data.detections) ? data.detections : []).slice();
+				list.sort((a, b) => b.date.localeCompare(a.date));
+				disease = list[0] || null;
+				render();
+			})
+			.catch(() => {}); // keep the generic wording if detections can't load
+	}
 
 	render();
 })();
