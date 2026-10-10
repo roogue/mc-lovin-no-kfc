@@ -110,9 +110,9 @@
 							<svg class="source-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
 						</button>
 						<div class="source-options" id="source-options" role="menu" aria-label="Data source" hidden>
-							<button type="button" role="menuitemradio" aria-checked="false" data-source="live"><strong>Live</strong><small>Real readings from the ESP32 via the server</small></button>
+							<button type="button" role="menuitemradio" aria-checked="false" data-source="live"><strong>Live</strong><small>Real readings from the ESP32 via the server</small><span class="source-status" data-status-for="live"></span></button>
 							<button type="button" role="menuitemradio" aria-checked="false" data-source="sample"><strong>Sample data</strong><small>Demo readings for trying things out</small></button>
-							<button type="button" role="menuitemradio" aria-checked="false" data-source="simulation"><strong>Simulation</strong><small>Readings from the simulation page</small></button>
+							<button type="button" role="menuitemradio" aria-checked="false" data-source="simulation"><strong>Simulation</strong><small>Readings from the simulation page</small><span class="source-status" data-status-for="simulation"></span></button>
 						</div>
 					</div>
 				</div>
@@ -522,7 +522,7 @@
 									required />
 								<button type="submit">Start</button>
 							</form>
-							<p class="irrigation-limit" id="irrigation-limit" hidden>Live mode: up to 10 min per watering (server limit)</p>
+							<p class="irrigation-limit" id="irrigation-limit" hidden>Up to 10 min per watering (server limit)</p>
 
 							<button
 								type="button"

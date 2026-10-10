@@ -4,19 +4,9 @@ ESP SERVER: bridge between the ESP32 (USB serial) and the PlantCheck API.
   ESP32 --serial--> this script --POST /data-->  api.putrinaqibah.com
   ESP32 <--serial-- this script <--GET /status-- api.putrinaqibah.com
 
-- Sends each new sensor reading to POST /data.
-- Polls GET /status every second and writes the fan/valve state to the ESP32
-  on every poll, so a rebooted ESP32 catches up within a second.
-- Keeps running if the API restarts or the internet drops, and reconnects
-  if the USB cable is unplugged.
-
 Run:
   pip install pyserial requests
   python server.py
-
-Optional settings (PowerShell examples):
-  $env:SERIAL_PORT="COM4"
-  $env:DEVICE_KEY="..."      # only needed once REQUIRE_DEVICE_KEY is on
 """
 
 import json
@@ -52,9 +42,9 @@ def is_number(value):
 
 def read_newest_reading(ser, buf):
     """Read everything waiting on serial. Returns (newest valid reading or None, leftover bytes)."""
-    buf += ser.read(ser.in_waiting or 1)  # read(1) waits up to the 0.1 s timeout when idle
+    buf += ser.read(ser.in_waiting or 1)
     *lines, buf = buf.split(b"\n")
-    if len(buf) > 4096:                    # no newline for a long time: drop the junk
+    if len(buf) > 4096:
         buf = b""
 
     newest = None

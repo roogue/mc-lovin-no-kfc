@@ -492,6 +492,35 @@ button.source-chip:focus-visible {
   color: var(--text-muted);
 }
 
+.source-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.source-status:empty {
+  display: none;
+}
+
+.source-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #D1D5DB;
+}
+
+.source-status[data-state="ok"]      { color: var(--green-dark); }
+.source-status[data-state="ok"]::before      { background: var(--green); }
+.source-status[data-state="partial"] { color: #8A5A00; }
+.source-status[data-state="partial"]::before { background: #E0A021; }
+.source-status[data-state="down"]    { color: #B4432B; }
+.source-status[data-state="down"]::before    { background: #C9573C; }
+
 .source-options button[aria-checked="true"]::before {
   content: "";
   position: absolute;

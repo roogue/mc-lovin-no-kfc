@@ -9,12 +9,13 @@
  *   'live'       – polls GET /api/sensor (and GET /api/relay) on the backend every API_CONFIG.pollSeconds.
  *                  Uses the API's own "connected" flag; no reading / unreachable server → cards go empty.
  *   'sample'     – the demo feed (or SENSOR_CONFIG.url); nothing from the backend or the simulation.
- *   'simulation' – readings pushed from the simulation page (simulation.html) over BroadcastChannel only.
+ *   'simulation' – same as live, but answered by the simulated backend on simulation.html (see api.js);
+ *                  never the network.
  *
  * Fires 'sensor:update' with { temperature, humidity, pressure?, demo },
  * 'sensor:lost' when readings stop, 'sensor:source' with { mode, state, reason } whenever the source or
  * connection changes (state: 'sample' | 'connecting' | 'connected' | 'disconnected';
- * reason: 'no-data' | 'unreachable' | 'quiet'), and 'api:relay' with each polled relay state in live mode.
+ * reason: 'no-data' | 'unreachable'), and 'api:relay' with each polled relay state in live / simulation mode.
  */
 (function () {
   'use strict';
@@ -97,7 +98,6 @@
   const DEFAULT_MODE = MODES.includes(API_CFG.defaultSource)
     ? API_CFG.defaultSource
     : window.PlantAPI && PlantAPI.configured ? 'live' : 'sample';
-  const SIM_TIMEOUT = 6000; // the simulated ESP32 sends every second
 
   const readMode = () => {
     try {
@@ -110,7 +110,7 @@
 
   let mode = readMode();
   let modeSince = Date.now();
-  let lastSim = 0;
+  const serverMode = () => mode === 'live' || mode === 'simulation';
   let state = null;
   let reason = null;
 
@@ -125,38 +125,47 @@
     }
   }
 
-  const LOST_TEXT = { 'no-data': 'ESP32 not connected', unreachable: "Can't reach the server", quiet: 'Simulation not running' };
+  const LOST_TEXT = {
+    live: { 'no-data': 'ESP32 not connected', unreachable: "Can't reach the server" },
+    simulation: { 'no-data': 'Simulated ESP32 not connected', unreachable: 'Simulation not running' },
+  };
 
   function setState(next, why = null) {
     if (next === state && why === reason) return;
     const wasDisconnected = state === 'disconnected';
     state = next;
     reason = why;
-    if (next === 'connecting') clearCards(mode === 'live' ? 'Connecting to the server…' : 'Waiting for the simulation…');
+    if (next === 'connecting') clearCards(mode === 'live' ? 'Connecting to the server…' : 'Connecting to the simulation…');
     if (next === 'disconnected') {
-      clearCards(LOST_TEXT[why] || 'Not connected');
+      clearCards((LOST_TEXT[mode] || {})[why] || 'Not connected');
       if (!wasDisconnected) document.dispatchEvent(new CustomEvent('sensor:lost'));
     }
     document.dispatchEvent(new CustomEvent('sensor:source', { detail: { mode, state, reason } }));
   }
 
-  // Live: ask the backend. The API decides "connected" (reading younger than 10 s); the browser's clock isn't used.
+  // Live / simulation: ask the backend. It decides "connected" (reading younger than 10 s); the browser's clock isn't used.
   let polling = false;
+  let failures = 0; // one slow or failed poll isn't an outage; two in a row is
   async function pollLive() {
-    if (mode !== 'live' || polling || !window.PlantAPI) return;
+    if (!serverMode() || polling || !window.PlantAPI) return;
     polling = true;
     const startedAt = Date.now();
     const since = modeSince;
     const [sensorRes, relayRes] = await Promise.allSettled([PlantAPI.getSensor(), PlantAPI.getRelay()]);
     polling = false;
-    if (mode !== 'live' || since !== modeSince) return; // switched source while waiting
+    if (!serverMode() || since !== modeSince) return; // switched source while waiting
 
     // Relays: the server is the source of truth for fan / valve in live mode
     if (relayRes.status === 'fulfilled' && relayRes.value.ok && relayRes.value.data) {
       document.dispatchEvent(new CustomEvent('api:relay', { detail: { ...relayRes.value.data, at: startedAt } }));
     }
 
-    if (sensorRes.status !== 'fulfilled' || !sensorRes.value.ok) return setState('disconnected', 'unreachable');
+    if (sensorRes.status !== 'fulfilled' || !sensorRes.value.ok) {
+      failures += 1;
+      if (failures >= 2) setState('disconnected', 'unreachable');
+      return;
+    }
+    failures = 0;
     const d = sensorRes.value.data || {};
     if (d.connected === true && Number.isFinite(Number(d.temperature)) && Number.isFinite(Number(d.humidity))) {
       setState('connected');
@@ -166,26 +175,16 @@
     }
   }
 
-  // Simulation: watch for the simulated ESP32 going quiet
-  function checkSim() {
-    if (mode !== 'simulation') return;
-    const quietFor = Date.now() - Math.max(lastSim, modeSince);
-    if (lastSim > modeSince && quietFor < SIM_TIMEOUT) setState('connected');
-    else if (quietFor < SIM_TIMEOUT) setState('connecting');
-    else setState('disconnected', 'quiet');
-  }
-
   function enterMode() {
     state = null;
+    failures = 0;
     reason = null;
     if (mode === 'sample') {
       setState('sample');
       tick();
-    } else if (mode === 'live') {
+    } else {
       setState('connecting');
       pollLive();
-    } else {
-      checkSim();
     }
   }
 
@@ -216,17 +215,9 @@
   enterMode();
   setInterval(tick, INTERVAL_MS);
   setInterval(pollLive, window.PlantAPI ? PlantAPI.pollMs : 2000);
-  setInterval(checkSim, 1000);
 
   window.PlantSensors = {
     push,
-    // Readings from the simulation page; ignored unless the simulation is the chosen source
-    pushExternal(reading) {
-      if (mode !== 'simulation') return;
-      lastSim = Date.now();
-      checkSim();
-      push({ ...reading, demo: false });
-    },
     setMode,
     retry: pollLive,
     modes: MODES,

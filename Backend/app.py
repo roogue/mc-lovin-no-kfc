@@ -70,6 +70,28 @@ def relay_state():
     return {"fan": fan_on, "valve": remaining > 0, "valve_remaining": round(remaining)}
 
 
+def sensor_is_fresh():
+    return bool(sensor) and time.time() - sensor["received_at"] < STALE_AFTER
+
+
+# ---- Overview ----
+
+@app.get("/")
+def index():
+    return jsonify(
+        name="PlantCheck API",
+        status="ok",
+        sensor_connected=sensor_is_fresh(),
+        endpoints={
+            "GET /api/sensor": "latest sensor reading",
+            "GET /api/relay": "fan and valve state",
+            "POST /api/relay": "set fan or valve" + (" (needs X-API-Key)" if REQUIRE_DASH_KEY else ""),
+            "POST /data": "device: send a reading" + (" (needs X-API-Key)" if REQUIRE_DEVICE_KEY else ""),
+            "GET /status": "device: get relay state",
+        },
+    )
+
+
 # ---- ESP SERVER <-> backend (team diagram) ----
 
 

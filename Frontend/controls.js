@@ -1,11 +1,11 @@
 /*
  * Device controls: Automate mode, fan toggle and irrigation countdown timer.
  *
- * Live mode (data source 'live'): every change goes to the backend through onFanChange / onIrrigationStart /
+ * Live and simulation modes: every change goes to the backend (real or simulated) through onFanChange / onIrrigationStart /
  * onIrrigationStop (POST /api/relay, see api.js; the "Control password" is only asked for if the server answers 401),
  * and the server is the source of truth: the polled relay state
  * ('api:relay') sets the fan and drives the watering countdown from valve_remaining. Failed commands are undone.
- * Sample / simulation modes: everything stays local, as before.
+ * Sample mode: everything stays local.
  *
  * Fires 'device:fan' and 'device:irrigation' so the plant scene can react, and listens for 'sensor:update'
  * (from sensors.js) to drive Automate mode.
@@ -27,7 +27,8 @@
   const emit = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
   const clock = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   const toast = (message, kind = 'error') => window.PlantToast && PlantToast(message, kind);
-  const isLive = () => !!(window.PlantAPI && window.PlantSensors && PlantSensors.mode === 'live');
+  // Live and simulation both talk to a backend (real or simulated), which owns the relay state
+  const isLive = () => !!(window.PlantAPI && window.PlantSensors && (PlantSensors.mode === 'live' || PlantSensors.mode === 'simulation'));
 
   /* ---------------- Backend hooks: POST /api/relay in live mode, local only otherwise ---------------- */
   let lastCommandAt = 0; // polled relay states that started before our latest command are ignored
@@ -257,7 +258,7 @@
     const max = maxMinutes();
     const m = Math.round(Number(customInput.value));
     if (!Number.isFinite(m) || m < 1 || m > max) {
-      customInput.setCustomValidity(isLive() ? `Enter 1 to ${max} minutes (the server's limit in live mode)` : `Enter 1 to ${max} minutes`);
+      customInput.setCustomValidity(isLive() ? `Enter 1 to ${max} minutes (the server's limit)` : `Enter 1 to ${max} minutes`);
       customInput.reportValidity();
       return;
     }

@@ -171,7 +171,8 @@
   color: var(--text-muted);
 }
 
-.sim-field select {
+.sim-field select,
+.sim-field input {
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -182,7 +183,12 @@
   font-weight: 500;
 }
 
-.sim-field select:focus-visible {
+.sim-field input:disabled {
+  opacity: 0.5;
+}
+
+.sim-field select:focus-visible,
+.sim-field input:focus-visible {
   outline: 2px solid var(--green);
   outline-offset: 1px;
 }
@@ -196,7 +202,9 @@
 /* ----- data flow diagram ----- */
 .flow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(48px, 0.9fr) minmax(0, 1fr) minmax(48px, 0.9fr) minmax(0, 1fr) minmax(48px, 1.2fr) minmax(0, 1fr);
+  grid-template-columns:
+    minmax(0, 1fr) minmax(36px, 0.6fr) minmax(0, 1fr) minmax(36px, 0.6fr) minmax(0, 1fr)
+    minmax(44px, 0.8fr) minmax(0, 1fr) minmax(44px, 0.9fr) minmax(0, 1fr);
   align-items: center;
   margin-top: 22px;
 }
@@ -253,6 +261,8 @@
 .wire-label {
   position: absolute;
   bottom: 10px;
+  line-height: 1.25;
+  text-align: center;
   left: 50%;
   transform: translateX(-50%);
   font-size: 10.5px;
@@ -261,7 +271,7 @@
   white-space: nowrap;
 }
 
-.flow.is-offline #wire-http {
+.flow.is-offline #wire-dash {
   opacity: 0.35;
 }
 
@@ -572,12 +582,71 @@ body.sim-paused .relays {
   font-weight: 600;
 }
 
+.req-result.is-error {
+  color: #B4432B;
+}
+
 .req-result {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-muted);
   font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
+.endpoint-foot {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ----- backend card ----- */
+.sim-backend {
+  margin-top: 20px;
+}
+
+.backend-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 20px;
+}
+
+.backend-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sim-subtitle {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sim-subtitle small {
+  margin-left: 4px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.backend-pre {
+  overflow-x: auto;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #F6F8F7;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+}
+
+.backend-col .sim-note {
+  margin-top: 0;
+}
+
+@media (max-width: 1180px) {
+  .backend-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ----- serial monitor ----- */

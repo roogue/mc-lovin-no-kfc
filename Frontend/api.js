@@ -1,10 +1,13 @@
 // Talks to the Plant Check backend (Backend/app.py) for live data. Base URL comes from window.API_CONFIG in index.html.
+//   GET  /           → { name, status: "ok", sensor_connected, endpoints }
 //   GET  /api/sensor → { temperature, humidity, pressure, received_at, age, connected } or { connected: false }
 //   GET  /api/relay  → { fan, valve, valve_remaining }
 //   POST /api/relay  → body { fan } / { valve: true, seconds } / { valve: false }; header X-API-Key only if the server wants it
 // Commands are sent without a password first. Only if the server answers 401 (REQUIRE_DASH_KEY on) is the
 // "Control password" asked for; once it works it's remembered in localStorage. It's never stored in code.
 // Successful relay commands fire 'api:relay' with the new state so the controls can resync.
+// When the data source is "simulation", the same calls go to the simulated backend on the simulation page
+// (simulation.html) over a BroadcastChannel instead of the network, with its own remembered password.
 
 window.PlantAPI = (function () {
 	"use strict";
@@ -22,7 +25,40 @@ window.PlantAPI = (function () {
 		}
 	}
 
-	async function request(path, { method = "GET", body, key } = {}) {
+	/* ---------- simulation transport (BroadcastChannel to simulation.html) ---------- */
+	const SIM_TIMEOUT_MS = 6000; // same patience as a network request
+	const simChannel = "BroadcastChannel" in window ? new BroadcastChannel("plantcheck-sim") : null;
+	const simPending = new Map();
+	if (simChannel) {
+		simChannel.addEventListener("message", ({ data }) => {
+			if (data && data.type === "api-reply" && simPending.has(data.id)) {
+				simPending.get(data.id)(data);
+				simPending.delete(data.id);
+			}
+		});
+	}
+	const viaSimulation = () => !!(window.PlantSensors && PlantSensors.mode === "simulation");
+
+	function simRequest(path, { method = "GET", body, key } = {}) {
+		return new Promise((resolve, reject) => {
+			if (!simChannel) return reject(new Error("BroadcastChannel not available"));
+			const id = Math.random().toString(36).slice(2);
+			const timer = setTimeout(() => {
+				simPending.delete(id);
+				reject(new Error("the simulation page isn't answering"));
+			}, SIM_TIMEOUT_MS);
+			simPending.set(id, (reply) => {
+				clearTimeout(timer);
+				resolve({ ok: reply.status >= 200 && reply.status < 300, status: reply.status, data: reply.data });
+			});
+			simChannel.postMessage({ type: "api", from: "dashboard", id, method, path, body, key: key || "" });
+		});
+	}
+
+	// opts.via: "live" | "simulation" to pick a backend explicitly; otherwise the current data source decides
+	async function request(path, opts = {}) {
+		if (opts.via ? opts.via === "simulation" : viaSimulation()) return simRequest(path, opts);
+		const { method = "GET", body, key } = opts;
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 		try {
@@ -49,26 +85,28 @@ window.PlantAPI = (function () {
 	}
 
 	/* ---------- control password (remembered in localStorage once one is needed) ---------- */
-	let memoryKey = ""; // fallback when localStorage is blocked
+	// The simulation keeps its own password, so it never replaces the real one
+	const keyStore = () => (viaSimulation() ? `${KEY_STORE}:simulation` : KEY_STORE);
+	const memoryKeys = {}; // fallback when localStorage is blocked
 	function getKey() {
 		try {
-			return localStorage.getItem(KEY_STORE) || "";
+			return localStorage.getItem(keyStore()) || "";
 		} catch {
-			return memoryKey;
+			return memoryKeys[keyStore()] || "";
 		}
 	}
 	function setKey(key) {
-		memoryKey = key;
+		memoryKeys[keyStore()] = key;
 		try {
-			localStorage.setItem(KEY_STORE, key);
+			localStorage.setItem(keyStore(), key);
 		} catch {
 			/* keep it in memory only */
 		}
 	}
 	function clearKey() {
-		memoryKey = "";
+		delete memoryKeys[keyStore()];
 		try {
-			localStorage.removeItem(KEY_STORE);
+			localStorage.removeItem(keyStore());
 		} catch {
 			/* nothing stored */
 		}
@@ -79,7 +117,7 @@ window.PlantAPI = (function () {
 		try {
 			return await request("/api/relay", { method: "POST", body, key });
 		} catch {
-			throw new RelayError("network", "Couldn't reach the server. Nothing was changed.");
+			throw new RelayError("network", viaSimulation() ? "The simulation page isn't answering. Nothing was changed." : "Couldn't reach the server. Nothing was changed.");
 		}
 	}
 
@@ -109,6 +147,8 @@ window.PlantAPI = (function () {
 		host: BASE.replace(/^https?:\/\//, ""),
 		pollMs: POLL_MS,
 		getSensor: () => request("/api/sensor"),
+		// The backend's overview (GET /) for "live" or "simulation", whatever the current data source is
+		getInfo: (via) => request("/", { via }),
 		getRelay: () => request("/api/relay"),
 		setRelay,
 		// Checks the server will accept our commands (asking for the password if needed). The empty body changes nothing.

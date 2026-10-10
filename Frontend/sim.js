@@ -1,6 +1,8 @@
-// Simulation page: a software ESP32 (port of esp32/esp32.ino) and ESP server (port of esp32-server/server.py,
-// plus the planned HTTP endpoints POST /data and GET /status) that drive the dashboard in another tab.
-// The tabs talk over a BroadcastChannel (see sim-link.js on the dashboard side).
+// Simulation page: the whole hardware path in software, so the dashboard can be tried without the real devices.
+//   ESP32 (port of esp32/esp32.ino) --serial--> ESP server (port of esp32-server/server.py)
+//   --POST /data, GET /status--> Backend (port of Backend/app.py) <--GET /api/sensor, /api/relay, POST /api/relay-- dashboard
+// The backend runs in this tab. The dashboard reaches it over a BroadcastChannel when its data source is
+// "Simulation" (see api.js). Nothing on this page ever talks to the real API.
 
 (function () {
 	"use strict";
@@ -9,11 +11,28 @@
 	const TX_INTERVAL = 1000; // esp32.ino: txInterval
 	const COMMAND_INTERVAL = 3000; // server.py: COMMAND_INTERVAL
 	const DASHBOARD_TIMEOUT = 8000;
-	const SERIAL_DELAY = 120; // time a line spends "on the wire"
+	const WIRE_DELAY = 120; // time a message spends "on the wire"
 	const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 	const noise = (a) => (Math.random() - 0.5) * 2 * a;
 	const pad = (text, width) => String(text).padStart(width, " ");
 	const pyJson = (obj) => JSON.stringify(obj).replace(/":/g, '": ').replace(/,"/g, ', "'); // json.dumps spacing
+	// Staged "on the wire" delays only while this tab is visible: a background tab's timers are slowed down by
+	// the browser, and the dashboard shouldn't have to wait for an animation it can't see.
+	const later = (fn) => (document.hidden ? fn() : setTimeout(fn, WIRE_DELAY));
+
+	// A steady clock that keeps running in a background tab: the browser throttles page timers there (down to
+	// once a minute), but not a worker's, so the ESP32 keeps its 1-second rhythm while you watch the dashboard.
+	function every(ms, fn) {
+		try {
+			const src = `setInterval(() => postMessage(0), ${ms});`;
+			const worker = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+			worker.onmessage = () => fn();
+			return;
+		} catch {
+			/* no workers: fall back to a normal timer */
+		}
+		setInterval(fn, ms);
+	}
 
 	const channel = "BroadcastChannel" in window ? new BroadcastChannel("plantcheck-sim") : null;
 	const send = (msg) => channel && channel.postMessage({ ...msg, from: "sim" });
@@ -46,6 +65,30 @@
 		dot.className = `packet ${kind}${reverse ? " reverse" : ""}`;
 		dot.addEventListener("animationend", () => dot.remove());
 		wire.appendChild(dot);
+	}
+
+	// A list of recent requests shown in a panel: { method, path, status, note }
+	function pushRequest(list, entry, max = 7) {
+		list.unshift({ ...entry, at: new Date() });
+		list.length = Math.min(list.length, max);
+	}
+
+	function renderRequests(el, list) {
+		el.replaceChildren(
+			...list.map((r) => {
+				const li = document.createElement("li");
+				const m = document.createElement("span");
+				m.className = `req-method req-${r.method.toLowerCase()}`;
+				m.textContent = r.method;
+				const p = document.createElement("code");
+				p.textContent = r.path;
+				const res = document.createElement("span");
+				res.className = `req-result${r.status >= 400 ? " is-error" : ""}`;
+				res.textContent = [r.status, r.note].filter(Boolean).join(" · ");
+				li.append(m, p, res);
+				return li;
+			}),
+		);
 	}
 
 	/* ================= ESP32 (esp32.ino) ================= */
@@ -120,18 +163,112 @@
 		if (!esp32.attached) return; // USB serial unplugged: the line goes nowhere
 		serialPrint(esp32.sensorOk ? "tx" : "error", `ESP32 → ${line}`);
 		setTimeout(() => packet("wire-serial", "data"), 60);
-		setTimeout(() => server.onSerialLine(line), SERIAL_DELAY);
+		later(() => espServer.onSerialLine(line));
 	}
 
-	/* ================= ESP server (server.py + HTTP endpoints) ================= */
-	const server = {
-		mode: "dashboard", // "dashboard" = GET /status; "mock" = random relay states like server.py today
+	/* ================= Backend (Backend/app.py) ================= */
+	const backend = {
+		requireDashKey: true, // REQUIRE_DASH_KEY (on unless set to something other than "1")
+		requireDeviceKey: false, // REQUIRE_DEVICE_KEY
+		dashKey: "sim-password", // DASH_KEY: simulation only, shown on this page
+		deviceKey: "sim-device-key", // DEVICE_KEY: the simulated ESP server doesn't send it (like Weisen's script)
+		sensor: null,
+		fanOn: false,
+		valveUntil: 0,
+		requests: [],
+		STALE_AFTER: 10,
+		DEFAULT_VALVE_SECONDS: 60,
+		MAX_VALVE_SECONDS: 600,
+
+		relayState() {
+			const remaining = Math.max(0, this.valveUntil - Date.now()) / 1000;
+			return { fan: this.fanOn, valve: remaining > 0, valve_remaining: Math.round(remaining) };
+		},
+
+		// One HTTP request → { status, data }, following app.py rule for rule
+		handle({ method, path, body, key = "" }) {
+			const isNumber = (v) => typeof v === "number" && Number.isFinite(v);
+			const isDict = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+			const reply = (status, data) => ({ status, data });
+
+			if (method === "POST" && path === "/data") {
+				if (this.requireDeviceKey && key !== this.deviceKey) return reply(401, { error: "unauthorized" });
+				if (!isDict(body) || !["temperature", "humidity", "pressure"].every((k) => isNumber(body[k]))) {
+					return reply(400, { error: "invalid reading" });
+				}
+				this.sensor = { temperature: body.temperature, humidity: body.humidity, pressure: body.pressure, received_at: Date.now() / 1000 };
+				return reply(200, { ok: true });
+			}
+			if (method === "GET" && path === "/") {
+				const fresh = !!this.sensor && Date.now() / 1000 - this.sensor.received_at < this.STALE_AFTER;
+				return reply(200, {
+					name: "PlantCheck API (simulated)",
+					status: "ok",
+					sensor_connected: fresh,
+					endpoints: {
+						"GET /api/sensor": "latest sensor reading",
+						"GET /api/relay": "fan and valve state",
+						"POST /api/relay": `set fan or valve${this.requireDashKey ? " (needs X-API-Key)" : ""}`,
+						"POST /data": `device: send a reading${this.requireDeviceKey ? " (needs X-API-Key)" : ""}`,
+						"GET /status": "device: get relay state",
+					},
+				});
+			}
+			if (method === "GET" && path === "/status") {
+				const s = this.relayState();
+				return reply(200, { fan: s.fan, valve: s.valve });
+			}
+			if (method === "GET" && path === "/api/sensor") {
+				if (!this.sensor) return reply(200, { connected: false });
+				const age = Date.now() / 1000 - this.sensor.received_at;
+				return reply(200, { ...this.sensor, age: Math.round(age * 10) / 10, connected: age < this.STALE_AFTER });
+			}
+			if (method === "GET" && path === "/api/relay") return reply(200, this.relayState());
+			if (method === "POST" && path === "/api/relay") {
+				if (this.requireDashKey && key !== this.dashKey) return reply(401, { error: "unauthorized" });
+				if (!isDict(body)) return reply(400, { error: "invalid json" });
+				for (const k of ["fan", "valve"]) {
+					if (k in body && typeof body[k] !== "boolean") return reply(400, { error: `${k} must be true or false` });
+				}
+				let secs = null;
+				if (body.valve === true) {
+					const raw = body.seconds ?? this.DEFAULT_VALVE_SECONDS; // Python int(): numbers and whole-number strings
+					if (typeof raw === "number" && Number.isFinite(raw)) secs = Math.trunc(raw);
+					else if (typeof raw === "string" && /^\s*[-+]?\d+\s*$/.test(raw)) secs = parseInt(raw, 10);
+					else if (typeof raw === "boolean") secs = Number(raw);
+					else return reply(400, { error: "seconds must be a number" });
+				}
+				// everything is valid: apply it all at once
+				if ("fan" in body) this.fanOn = body.fan;
+				if ("valve" in body) {
+					this.valveUntil = secs !== null ? Date.now() + Math.min(Math.max(secs, 1), this.MAX_VALVE_SECONDS) * 1000 : 0;
+				}
+				return reply(200, this.relayState());
+			}
+			return reply(404, { error: "not found" });
+		},
+
+		// Wraps handle() with logging for the Backend panel
+		request(who, req) {
+			const res = this.handle(req);
+			let note = who;
+			if (req.method === "POST" && req.path === "/api/relay" && res.status === 200) {
+				note = `${who} · ${Object.keys(req.body || {}).length ? pyJson(req.body) : "access check"}`;
+			}
+			pushRequest(this.requests, { method: req.method, path: req.path, status: res.status, note }, 9);
+			renderBackend();
+			return res;
+		},
+	};
+
+	/* ================= ESP server (server.py, talking to the backend) ================= */
+	const espServer = {
+		mode: "backend", // "backend" = relay state from GET /status; "mock" = random relay states like server.py today
 		posts: 0,
 		lastPost: null,
+		lastPostStatus: null,
 		lastStatus: null,
 		lastCommand: null,
-		dashboardSeen: 0,
-		backendStatus: { fan: false, valve: false },
 		requests: [],
 
 		onSerialLine(raw) {
@@ -151,95 +288,84 @@
 			const press = Number(telemetry.pressure) || 0;
 			serialPrint("info", `[RECV SENSOR] Temp: ${pad(temp.toFixed(2), 5)} °C | Hum: ${pad(hum.toFixed(2), 5)}% | Press: ${pad(press.toFixed(2), 7)} hPa`);
 
-			// POST /data
+			// POST /data to the backend
 			const payload = { temperature: temp, humidity: hum, pressure: press };
-			send({ type: "data", payload });
-			server.posts++;
-			server.lastPost = payload;
-			server.request("POST", "/data", !dashboardConnected() ? "no dashboard open" : dataSource === "simulation" ? "200 OK" : `ignored · dashboard on ${SOURCE_NAMES[dataSource]}`);
-			packet("wire-http", "data");
-			renderServer();
-		},
-
-		// GET /status: ask the dashboard, wait briefly for the answer, fall back to the last known state
-		getStatus() {
-			return new Promise((resolve) => {
-				const id = Math.random().toString(36).slice(2);
-				const timer = setTimeout(() => {
-					pendingStatus.delete(id);
-					resolve(undefined); // no answer at all
-				}, 500);
-				pendingStatus.set(id, (payload) => {
-					clearTimeout(timer);
-					resolve(payload);
-				});
-				send({ type: "get-status", id });
-				packet("wire-http", "status", true);
+			packet("wire-device", "data");
+			later(() => {
+				const res = backend.request("ESP server", { method: "POST", path: "/data", body: payload });
+				espServer.posts++;
+				espServer.lastPost = payload;
+				espServer.lastPostStatus = res.status;
+				pushRequest(espServer.requests, { method: "POST", path: "/data", status: res.status, note: res.status === 200 ? "" : res.data.error });
+				if (res.status !== 200) serialPrint("error", `SERVER POST /data failed: ${res.status} ${res.data.error}`);
+				renderServer();
 			});
 		},
 
-		async poll() {
+		poll() {
 			if (!running) return;
 			if (!esp32.attached) {
 				serialPrint("error", "SERVER serial error: could not open port COM3 (ESP32 unplugged)");
 				return;
 			}
-			let cmd;
-			if (server.mode === "mock") {
-				cmd = { fan: Math.random() < 0.5, valve: Math.random() < 0.5 };
-			} else {
-				const answer = await server.getStatus();
-				if (answer) {
-					server.backendStatus = answer;
-					server.lastStatus = answer;
-					server.request("GET", "/status", `200 ${pyJson(answer)}`);
-				} else if (answer === null) {
-					server.request("GET", "/status", "dashboard isn't using the simulation, keeping last state");
-				} else {
-					server.request("GET", "/status", "no answer, keeping last state");
-				}
-				cmd = { ...server.backendStatus };
-			}
-			server.lastCommand = cmd;
+			if (espServer.mode === "mock") return espServer.writeCommand({ fan: Math.random() < 0.5, valve: Math.random() < 0.5 });
+
+			// GET /status from the backend, then forward it to the ESP32
+			packet("wire-device", "status");
+			later(() => {
+				const res = backend.request("ESP server", { method: "GET", path: "/status" });
+				espServer.lastStatus = res.data;
+				pushRequest(espServer.requests, { method: "GET", path: "/status", status: res.status, note: pyJson(res.data) });
+				packet("wire-device", "command", true);
+				espServer.writeCommand({ fan: !!res.data.fan, valve: !!res.data.valve });
+			});
+		},
+
+		writeCommand(cmd) {
+			espServer.lastCommand = cmd;
 			const line = `${pyJson(cmd)}\n`; // serial line must end with '\n'
 			serialPrint("rx", `SERVER → ${line.trim()}`);
 			serialPrint("info", `[SENT RELAY ] Fan -> ${cmd.fan ? "ON " : "OFF"} | Valve -> ${cmd.valve ? "ON " : "OFF"}`);
 			packet("wire-serial", "command", true);
-			setTimeout(() => {
+			later(() => {
 				esp32SerialIn(line);
 				packet("wire-sensor", "command", true);
-			}, SERIAL_DELAY);
+			});
 			renderServer();
 		},
-
-		request(method, path, result) {
-			server.requests.unshift({ method, path, result, at: new Date() });
-			server.requests.length = Math.min(server.requests.length, 6);
-		},
 	};
-	const pendingStatus = new Map();
-	const dashboardConnected = () => Date.now() - server.dashboardSeen < DASHBOARD_TIMEOUT;
 
-	/* ================= Messages from the dashboard ================= */
+	/* ================= Dashboard ⇄ this tab ================= */
+	let dashboardSeen = 0;
 	let dashboardState = null;
-	let dashboardSource = null; // { mode, state } as the dashboard sees it
+	let dashboardSource = null; // { mode, state, reason } as the dashboard sees it
+	const dashboardConnected = () => Date.now() - dashboardSeen < DASHBOARD_TIMEOUT;
+
 	if (channel) {
 		channel.onmessage = ({ data }) => {
 			if (!data || data.from !== "dashboard") return;
-			server.dashboardSeen = Date.now();
-			if (data.type === "status" || data.type === "hello") {
-				if (data.payload) server.backendStatus = data.payload;
-				if (data.id && pendingStatus.has(data.id)) pendingStatus.get(data.id)(data.payload);
+			dashboardSeen = Date.now();
+
+			// The dashboard's API calls (only sent while its data source is "Simulation")
+			if (data.type === "api") {
+				const req = { method: data.method, path: data.path, body: data.body, key: data.key };
+				const isCommand = data.method === "POST";
+				const res = backend.request("Dashboard", req); // answered at once, even from a background tab
+				send({ type: "api-reply", id: data.id, status: res.status, data: res.data });
+				packet("wire-dash", isCommand ? "command" : "status", true);
+				if (!isCommand && data.path === "/api/sensor" && res.data.connected) setTimeout(() => packet("wire-dash", "data"), WIRE_DELAY);
+				return;
 			}
+
 			if (data.state) dashboardState = data.state;
 			if (data.source) dashboardSource = data.source;
 			if (data.type === "data-source" && data.mode && data.mode !== dataSource) {
-				dataSource = data.mode; // changed on the dashboard (e.g. "Use sample data" in its modal)
+				dataSource = data.mode; // changed on the dashboard (its chip menu or the "Use sample data" button)
 				saveSource();
 			}
 			renderSource();
 			if (data.type === "plant-state" || data.type === "hello") renderPlant();
-			renderServer();
+			renderFlow();
 		};
 	}
 
@@ -303,22 +429,22 @@
 		}),
 	);
 	window.addEventListener("storage", (e) => {
-		if (e.key === SOURCE_KEY) {
-			if (SOURCE_NAMES[e.newValue]) dataSource = e.newValue;
+		if (e.key === SOURCE_KEY && SOURCE_NAMES[e.newValue]) {
+			dataSource = e.newValue;
 			renderSource();
 		}
 	});
 
 	function renderSource() {
 		sourceButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.source === dataSource)));
-		const state = dashboardSource && dashboardSource.mode === dataSource ? dashboardSource.state : null;
+		const s = dashboardSource && dashboardSource.mode === dataSource ? dashboardSource : null;
 		let note;
 		if (dataSource === "sample") note = "The dashboard shows sample readings and ignores this simulation.";
-		else if (dataSource === "live") note = "The dashboard shows real readings from the API and ignores this simulation. Nothing here is ever sent to the real API.";
-		else if (!dashboardConnected()) note = "The dashboard will use this simulation's readings. Open it to see them.";
-		else if (state === "connected") note = "The dashboard is showing this simulation's readings.";
-		else if (state === "disconnected") note = "The dashboard says the simulation isn't sending. Plug the USB serial back in or resume the simulation.";
-		else note = "Waiting for the first simulated reading…";
+		else if (dataSource === "live") note = "The dashboard uses the real API and ignores this simulation. Nothing here is ever sent to the real API.";
+		else if (!dashboardConnected()) note = "The dashboard will read this page's simulated backend. Open it to see the readings.";
+		else if (s && s.state === "connected") note = "The dashboard is reading this page's simulated backend.";
+		else if (s && s.state === "disconnected") note = "The dashboard says the simulated ESP32 isn't sending: check the USB serial, the BME280 or Pause.";
+		else note = "The dashboard is connecting to this page's simulated backend…";
 		$("source-note").textContent = note;
 	}
 
@@ -330,6 +456,7 @@
 	};
 	const modeButtons = document.querySelectorAll("#esp-mode button");
 	const bmeToggle = $("bme-toggle");
+	const usbToggle = $("usb-toggle");
 
 	function setMode(mode) {
 		esp32.mode = mode;
@@ -343,7 +470,6 @@
 			renderEsp32();
 		}),
 	);
-	const usbToggle = $("usb-toggle");
 	usbToggle.addEventListener("click", () => {
 		esp32.attached = !esp32.attached;
 		serialPrint(esp32.attached ? "info" : "error", esp32.attached ? "USB serial reconnected" : "USB serial unplugged: nothing reaches the ESP server");
@@ -395,41 +521,67 @@
 	const serverModeButtons = document.querySelectorAll("#server-mode button");
 	serverModeButtons.forEach((b) =>
 		b.addEventListener("click", () => {
-			server.mode = b.dataset.mode;
-			serialPrint("info", server.mode === "mock" ? "SERVER now sends random relay states (server.py mock)" : "SERVER now follows the dashboard via GET /status");
+			espServer.mode = b.dataset.mode;
+			serialPrint("info", espServer.mode === "mock" ? "SERVER now sends random relay states (server.py mock)" : "SERVER now follows the backend via GET /status");
 			renderServer();
 		}),
 	);
 
 	function renderServer() {
-		const connected = dashboardConnected();
-		serverModeButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === server.mode)));
-		$("srv-posts").textContent = server.posts;
-		$("srv-post").textContent = server.lastPost ? JSON.stringify(server.lastPost, null, 2) : "—";
-		$("srv-status").textContent = server.lastStatus ? JSON.stringify(server.lastStatus, null, 2) : "—";
-		$("srv-command").textContent = server.lastCommand ? pyJson(server.lastCommand) : "—";
-		$("srv-requests").replaceChildren(
-			...server.requests.map((r) => {
-				const li = document.createElement("li");
-				const m = document.createElement("span");
-				m.className = `req-method req-${r.method.toLowerCase()}`;
-				m.textContent = r.method;
-				const p = document.createElement("code");
-				p.textContent = r.path;
-				const res = document.createElement("span");
-				res.className = "req-result";
-				res.textContent = r.result;
-				li.append(m, p, res);
-				return li;
-			}),
-		);
+		serverModeButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === espServer.mode)));
+		$("srv-posts").textContent = espServer.posts;
+		$("srv-post").textContent = espServer.lastPost ? JSON.stringify(espServer.lastPost, null, 2) : "—";
+		$("srv-post-status").textContent = espServer.lastPostStatus ? `last answer ${espServer.lastPostStatus}` : "";
+		$("srv-status").textContent = espServer.lastStatus ? JSON.stringify(espServer.lastStatus, null, 2) : "—";
+		$("srv-command").textContent = espServer.lastCommand ? pyJson(espServer.lastCommand) : "—";
+		renderRequests($("srv-requests"), espServer.requests);
+		renderFlow();
+	}
 
+	/* ================= Backend panel ================= */
+	const dashKeyToggle = $("dashkey-toggle");
+	const dashKeyInput = $("dashkey-input");
+	const deviceKeyToggle = $("devicekey-toggle");
+
+	dashKeyToggle.addEventListener("click", () => {
+		backend.requireDashKey = !backend.requireDashKey;
+		renderBackend();
+	});
+	deviceKeyToggle.addEventListener("click", () => {
+		backend.requireDeviceKey = !backend.requireDeviceKey;
+		serialPrint(backend.requireDeviceKey ? "error" : "info", backend.requireDeviceKey
+			? "BACKEND now requires DEVICE_KEY on POST /data (the ESP server doesn't send one)"
+			: "BACKEND accepts POST /data without a key again");
+		renderBackend();
+	});
+	dashKeyInput.addEventListener("input", () => {
+		backend.dashKey = dashKeyInput.value;
+	});
+
+	function renderBackend() {
+		dashKeyToggle.setAttribute("aria-checked", String(backend.requireDashKey));
+		deviceKeyToggle.setAttribute("aria-checked", String(backend.requireDeviceKey));
+		dashKeyInput.disabled = !backend.requireDashKey;
+		const sensor = backend.handle({ method: "GET", path: "/api/sensor" }).data;
+		const relay = backend.relayState();
+		$("be-sensor").textContent = JSON.stringify(sensor, (k, v) => (k === "received_at" ? undefined : v), 2);
+		$("be-relay").textContent = JSON.stringify(relay, null, 2);
+		const chip = $("backend-chip");
+		chip.textContent = sensor.connected ? "connected: true" : "connected: false";
+		chip.classList.toggle("is-bad", !sensor.connected);
+		renderRequests($("be-requests"), backend.requests);
+		$("flow-backend").textContent = relay.valve ? `Watering · ${relay.valve_remaining}s left` : `Fan ${relay.fan ? "on" : "off"} · valve off`;
+	}
+
+	function renderFlow() {
+		const connected = dashboardConnected();
+		const usingSim = connected && dataSource === "simulation";
+		$("flow-server").textContent = espServer.mode === "mock" ? "Random relay mock" : "Polls /status every 3 s";
+		$("flow-dashboard").textContent = !connected ? "Not open" : usingSim ? "Reading this backend" : `On ${SOURCE_NAMES[dataSource]}`;
+		$("flow").classList.toggle("is-offline", !usingSim);
 		const chip = $("dash-chip");
 		chip.classList.toggle("is-on", connected);
 		chip.lastChild.textContent = connected ? "Dashboard connected" : "Dashboard not open";
-		$("flow-dashboard").textContent = connected ? "Connected" : "Not open";
-		$("flow-server").textContent = server.mode === "mock" ? "Random relay mock" : "Polls /status every 3 s";
-		$("flow").classList.toggle("is-offline", !connected);
 	}
 
 	/* ================= Run / pause, monitor controls ================= */
@@ -439,7 +591,7 @@
 		runBtn.textContent = running ? "Pause" : "Resume";
 		runBtn.setAttribute("aria-pressed", String(!running));
 		document.body.classList.toggle("sim-paused", !running);
-		serialPrint("info", running ? "Simulation resumed" : "Simulation paused");
+		serialPrint("info", running ? "Simulation resumed (the backend kept running)" : "Simulation paused: the ESP32 and ESP server stop; the backend keeps answering");
 	});
 	$("log-pause").addEventListener("click", (e) => {
 		logPaused = !logPaused;
@@ -454,15 +606,18 @@
 	/* ================= Boot ================= */
 	serialPrint("info", "ESP32 booting… relays OFF, BME280 found at 0x76");
 	serialPrint("info", "SERVER connected to the ESP32 over serial (115200 baud)");
+	serialPrint("info", "BACKEND ready (simulated Backend/app.py in this tab)");
 	send({ type: "hello" });
 	renderEsp32();
 	renderServer();
+	renderBackend();
 	renderPlant();
-	setInterval(esp32Tick, TX_INTERVAL);
-	setInterval(() => server.poll(), COMMAND_INTERVAL);
 	renderSource();
+	every(TX_INTERVAL, esp32Tick);
+	every(COMMAND_INTERVAL, () => espServer.poll());
+	setInterval(renderBackend, 1000); // age, "connected" and the valve countdown move on their own
 	setInterval(() => {
-		renderServer();
+		renderFlow();
 		renderPlant();
 		renderSource();
 	}, 2000);

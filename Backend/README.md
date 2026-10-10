@@ -10,6 +10,7 @@ ESP32 --serial--> ESP SERVER --POST /data, GET /status--> this API <--GET /api/s
 
 | Endpoint | Used by | What it does |
 |---|---|---|
+| `GET /` | Anyone | `{"name": "PlantCheck API", "status": "ok", "sensor_connected": bool, "endpoints": {...}}`; the dashboard's data source menu shows it |
 | `POST /data` | ESP SERVER | Stores `{"temperature", "humidity", "pressure"}` (numbers). Needs `X-API-Key: DEVICE_KEY` only when `REQUIRE_DEVICE_KEY=1`. |
 | `GET /status` | ESP SERVER | Returns `{"fan": bool, "valve": bool}` |
 | `GET /api/sensor` | Dashboard | Latest reading plus `received_at`, `age`, `connected` (false once the reading is 10 s old), or `{"connected": false}` |
