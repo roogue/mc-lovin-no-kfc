@@ -1598,7 +1598,20 @@
     }
   }
 
-  setState(STATUS[params.get('state')] ? params.get('state') : card.dataset.state || 'healthy');
+  // The Disease page saves the plant status from the latest photo scan
+  function scanState() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('plantcheck-scan-state'));
+      return saved && STATUS[saved.state] ? saved.state : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  setState(STATUS[params.get('state')] ? params.get('state') : scanState() || card.dataset.state || 'healthy');
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'plantcheck-scan-state' && scanState()) setState(scanState());
+  });
   updateTimeUI();
   setInterval(updateTimeUI, 15000);
 

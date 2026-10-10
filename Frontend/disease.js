@@ -175,6 +175,10 @@
 		'  "confidence": "low" | "medium" | "high",',
 		'  "health_percentage": 0 to 100 (estimated overall plant health),',
 		'  "description": "detailed explanation of visible symptoms or healthy state",',
+		'  "risk_score": 0 to 100 (how much danger the plant is in; 0 = none, 100 = about to die or spread to other plants),',
+		'  "risk_explanation": "1-2 sentences on why this score: spread, speed, severity, damaged area",',
+		'  "priority": "low" | "medium" | "high" | "urgent" (how soon the owner must act),',
+		'  "priority_reason": "one sentence on why act within that time frame",',
 		'  "recommendations": ["step 1", "step 2", "step 3"]',
 		"}",
 		"No markdown, no commentary, only valid JSON.",
@@ -188,8 +192,37 @@
 		nutrient_deficiency: "Nutrient deficiency",
 		other: "Other",
 	};
+	const PRIORITY_LABEL = { low: "Low", medium: "Medium", high: "High", urgent: "Urgent" };
+	const PRIORITY_TIME = { low: "Monitor and act when convenient.", medium: "Act within a few days.", high: "Act within 24 hours.", urgent: "Act today." };
+	const PLANT_STATE_TEXT = {
+		healthy: "Plant status set to Healthy.",
+		sick: "Plant status set to Sick. The dashboard now shows the plant as sick.",
+		withered: "Plant status set to Withered. The dashboard now shows the plant as withered.",
+	};
 	let scanFile = null;
 	let previewUrl = "";
+
+	const levelFromRisk = (risk) => (risk >= 80 ? "urgent" : risk >= 60 ? "high" : risk >= 30 ? "medium" : "low");
+
+	// Never trust the model's level blindly: a missing or invalid one falls back to the risk score
+	function scanAssessment(r, pct) {
+		const healthy = r.status === "healthy";
+		let risk = Number(r.risk_score);
+		if (!Number.isFinite(risk)) risk = healthy ? Math.min(20, 100 - pct) : 100 - pct;
+		risk = Math.round(Math.min(100, Math.max(0, risk)));
+		const priority = PRIORITY_LABEL[r.priority] ? r.priority : levelFromRisk(risk);
+		// Withered = the plant is mostly lost; otherwise any problem makes it sick
+		const state = healthy ? "healthy" : pct <= 30 || risk >= 75 ? "withered" : "sick";
+		return { risk, priority, state };
+	}
+
+	function saveScanState(state) {
+		try {
+			localStorage.setItem("plantcheck-scan-state", JSON.stringify({ state, at: Date.now() }));
+		} catch {
+			// storage unavailable: the dashboard just keeps its current status
+		}
+	}
 
 	function scanError(msg) {
 		const el = $("scan-error");
@@ -216,6 +249,19 @@
 		$("scan-issue").textContent = r.issue || (r.status === "healthy" ? "No issues found" : status);
 		$("scan-description").textContent = r.description || "";
 
+		const a = scanAssessment(r, pct);
+		$("scan-priority-box").dataset.level = a.priority;
+		$("scan-priority").textContent = PRIORITY_LABEL[a.priority];
+		$("scan-priority-reason").textContent = [PRIORITY_TIME[a.priority], r.priority_reason].filter(Boolean).join(" ");
+		$("scan-risk-box").dataset.level = levelFromRisk(a.risk);
+		$("scan-risk").textContent = a.risk;
+		$("scan-meter").setAttribute("aria-label", `Risk score ${a.risk} out of 100`);
+		$("scan-meter-fill").style.width = `${a.risk}%`;
+		$("scan-risk-reason").textContent = r.risk_explanation || "No explanation was provided for this score.";
+		$("scan-plantstate").textContent = PLANT_STATE_TEXT[a.state];
+		saveScanState(a.state);
+		if (window.PlantCard) PlantCard.setState(a.state);
+
 		const recs = Array.isArray(r.recommendations) ? r.recommendations : [];
 		$("scan-recs").hidden = !recs.length;
 		$("scan-recommendations").replaceChildren(
@@ -235,7 +281,7 @@
 
 		// Banner only changes when the scan finds a problem
 		if (r.status !== "healthy") {
-			showAlertBanner(`${r.issue || status} detected`, "Found by photo scan. See the recommendations below for what to do.");
+			showAlertBanner(`${r.issue || status} detected`, `Found by photo scan. ${PRIORITY_LABEL[a.priority]} priority, risk ${a.risk}/100. See the recommendations below.`);
 		}
 	}
 
@@ -278,7 +324,7 @@
 							],
 						},
 					],
-					max_tokens: 1024,
+					max_tokens: 1500,
 					thinking: { type: "disabled" }, // thinking would eat the token budget before the JSON
 				}),
 				signal: controller.signal,
@@ -390,7 +436,7 @@
 		$("banner-text").textContent = !latest
 			? "Scan results will show up here once the plant has been checked."
 			: `The latest scan (${scanAgo(latest.when)}) found the plant healthy${latest.health != null ? `, ${Math.round(latest.health)}% plant health` : ""}.` +
-				(lastIssue ? ` Last issue: ${lastIssue.disease}, ${scanAgo(lastIssue.when)}.` : "");
+			(lastIssue ? ` Last issue: ${lastIssue.disease}, ${scanAgo(lastIssue.when)}.` : "");
 	}
 
 	function renderLiveTiles(scans) {

@@ -544,6 +544,101 @@
   color: #FFFFFF;
 }
 
+.scan-insights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.scan-insight {
+  --lvl: #23854A;
+  --lvl-bg: #E9F8EF;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.scan-insight[data-level="medium"] {
+  --lvl: #A86A00;
+  --lvl-bg: #FFF4DB;
+}
+
+.scan-insight[data-level="high"] {
+  --lvl: #B4432B;
+  --lvl-bg: #FFE9E3;
+}
+
+.scan-insight[data-level="urgent"] {
+  --lvl: #8F1D1D;
+  --lvl-bg: #FFD9D9;
+}
+
+.scan-insight-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.scan-insight strong {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--lvl);
+}
+
+.scan-insight strong small {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.scan-priority strong {
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: var(--lvl-bg);
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.scan-insight p {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+}
+
+.scan-meter {
+  height: 8px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.scan-meter span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--lvl);
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.scan-plantstate {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--tone-bg);
+  font-weight: 600;
+  color: var(--tone);
+}
+
 @media (max-width: 520px) {
   .scan-summary {
     flex-direction: column;
@@ -556,7 +651,8 @@
     animation: none;
   }
 
-  .scan-gauge-fill {
+  .scan-gauge-fill,
+  .scan-meter span {
     transition: none;
   }
 }
@@ -794,10 +890,21 @@ main [data-mode][hidden] {
     color: var(--text-muted);
   }
 
-  .readings-table td:nth-child(2)::before { content: "Temp"; }
-  .readings-table td:nth-child(3)::before { content: "Humidity"; }
-  .readings-table td:nth-child(4)::before { content: "Pressure"; }
-  .readings-table td:nth-child(5)::before { content: "Precip."; }
+  .readings-table td:nth-child(2)::before {
+    content: "Temp";
+  }
+
+  .readings-table td:nth-child(3)::before {
+    content: "Humidity";
+  }
+
+  .readings-table td:nth-child(4)::before {
+    content: "Pressure";
+  }
+
+  .readings-table td:nth-child(5)::before {
+    content: "Precip.";
+  }
 
   .readings-table td.updates-message {
     grid-column: 1 / -1;
