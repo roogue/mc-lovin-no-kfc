@@ -164,7 +164,21 @@
 		);
 	}
 
-	// ----- Photo scan: upload -> backend -> DeepSeek, JSON result shown in the scan card -----
+	// ----- Photo scan: photo -> DeepSeek (straight from the browser), JSON result shown in the scan card -----
+	const SCAN = window.DISEASE_SCAN_CONFIG || {};
+	const SCAN_TIMEOUT_MS = 90000;
+	const SCAN_PROMPT = [
+		"You are an expert plant pathologist. Examine the uploaded plant image and return ONLY a JSON object with this exact structure:",
+		"{",
+		'  "status": "healthy" | "diseased" | "pest_damage" | "nutrient_deficiency" | "other",',
+		'  "issue": "short issue name or null if healthy",',
+		'  "confidence": "low" | "medium" | "high",',
+		'  "health_percentage": 0 to 100 (estimated overall plant health),',
+		'  "description": "detailed explanation of visible symptoms or healthy state",',
+		'  "recommendations": ["step 1", "step 2", "step 3"]',
+		"}",
+		"No markdown, no commentary, only valid JSON.",
+	].join("\n");
 	const MAX_SCAN_BYTES = 8 * 1024 * 1024;
 	const SCAN_MIMES = ["image/jpeg", "image/png", "image/webp"];
 	const SCAN_STATUS = {
@@ -225,6 +239,67 @@
 		}
 	}
 
+	function readAsDataUrl(file) {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result);
+			reader.onerror = () => reject(new Error("Couldn't read that image."));
+			reader.readAsDataURL(file);
+		});
+	}
+
+	// Models sometimes wrap the JSON in ```json fences despite the instructions
+	function parseScanReply(text) {
+		const json = String(text || "").trim().replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
+		const result = JSON.parse(json);
+		if (!result || typeof result !== "object" || Array.isArray(result)) throw new Error("not an object");
+		return result;
+	}
+
+	async function analysePhoto(file) {
+		if (!SCAN.apiKey) throw new Error("No DeepSeek key set: add it to DISEASE_SCAN_CONFIG in disease.html.");
+		const imageUrl = await readAsDataUrl(file);
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), SCAN_TIMEOUT_MS);
+		let res;
+		try {
+			res = await fetch(`${String(SCAN.baseUrl || "https://api.deepseek.com").replace(/\/+$/, "")}/chat/completions`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json", Authorization: `Bearer ${SCAN.apiKey}` },
+				body: JSON.stringify({
+					model: SCAN.model,
+					messages: [
+						{ role: "system", content: SCAN_PROMPT },
+						{
+							role: "user",
+							content: [
+								{ type: "image_url", image_url: { url: imageUrl } },
+								{ type: "text", text: "Analyze this plant image and report any issues using the requested JSON format." },
+							],
+						},
+					],
+					max_tokens: 1024,
+					thinking: { type: "disabled" }, // thinking would eat the token budget before the JSON
+				}),
+				signal: controller.signal,
+			});
+		} catch (err) {
+			throw new Error(err.name === "AbortError" ? "DeepSeek took too long to answer. Please try again." : "Couldn't reach DeepSeek. Check your internet connection.");
+		} finally {
+			clearTimeout(timer);
+		}
+		const data = await res.json().catch(() => ({}));
+		if (!res.ok) {
+			const detail = (data.error && data.error.message) || `HTTP ${res.status}`;
+			throw new Error(res.status === 401 ? "DeepSeek rejected the API key." : `DeepSeek couldn't analyse the photo: ${detail}`);
+		}
+		try {
+			return parseScanReply(data.choices[0].message.content);
+		} catch {
+			throw new Error("DeepSeek returned an unexpected answer. Please try again.");
+		}
+	}
+
 	function initScan() {
 		const input = $("scan-input");
 		const submit = $("scan-submit");
@@ -257,15 +332,9 @@
 			submit.disabled = true;
 			submit.textContent = "Analysing…";
 			try {
-				const base = String((window.API_CONFIG || {}).baseUrl || "").replace(/\/+$/, "");
-				const form = new FormData();
-				form.append("image", scanFile);
-				const res = await fetch(`${base}/api/disease-scan`, { method: "POST", body: form });
-				const data = await res.json().catch(() => ({}));
-				if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-				renderScanResult(data);
+				renderScanResult(await analysePhoto(scanFile));
 			} catch (err) {
-				scanError(err instanceof TypeError ? "Couldn't reach the server — is the backend running?" : err.message);
+				scanError(err.message);
 			} finally {
 				submit.disabled = false;
 				submit.textContent = "Analyse photo";

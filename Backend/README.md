@@ -23,7 +23,6 @@ The settings are constants at the top of `app.py`; edit them there:
 
 - `DEVICE_KEY`: key for the ESP SERVER
 - `REQUIRE_DEVICE_KEY`: set to `True` to make `POST /data` require `X-API-Key: DEVICE_KEY`
-- `DEEPSEEK_API_KEY`: key for the disease scan (`POST /api/disease-scan`)
 
 ## On the VPS
 
@@ -42,11 +41,6 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1 #windows
 source .venv/bin/activate #mac
 pip install -r requirements.txt
-
-export DEVICE_KEY=x DASH_KEY=x DEEPSEEK_API_KEY=sk-de105445e21f463a8ae733d50e94e35a
-
-$env:DEVICE_KEY = "local-device-key"
-$env:DASH_KEY = "local-dashboard-key"
 python app.py
 ```
 
