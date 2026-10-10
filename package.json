@@ -1,0 +1,10 @@
+{
+  "name": "mc-lovin-no-kfc",
+  "private": true,
+  "scripts": {
+    "postinstall": "npm --prefix Frontend install",
+    "dev": "npm --prefix Frontend run dev",
+    "build": "npm --prefix Frontend run build",
+    "preview": "npm --prefix Frontend run preview"
+  }
+}

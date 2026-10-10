@@ -5,10 +5,11 @@
 Preview the site with [Vite](https://vite.dev) (needs Node.js):
 
 ```bash
-cd Frontend
-npm install      # first time only
+npm install      # first time only (also installs Frontend's packages)
 npm run dev      # opens http://localhost:5173 and reloads when you save
 ```
+
+These work from the project root or from inside `Frontend/`.
 
 - `npm run build` builds the site into `Frontend/dist/`
 - `npm run preview` serves that build at http://localhost:4173
