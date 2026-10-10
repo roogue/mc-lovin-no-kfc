@@ -1,7 +1,6 @@
 import base64
 import json
 import math
-import os
 import re
 import time
 from flask import Flask, request, jsonify
@@ -11,10 +10,9 @@ from openai import OpenAI
 app = Flask(__name__)
 CORS(app)
 
-DEVICE_KEY = os.environ["DEVICE_KEY"]
-DASH_KEY = os.environ["DASH_KEY"]
-REQUIRE_DEVICE_KEY = os.environ.get("REQUIRE_DEVICE_KEY") == "1"
-REQUIRE_DASH_KEY = os.environ.get("REQUIRE_DASH_KEY", "1") == "1"
+# Settings (edit here; nothing is read from the environment)
+DEVICE_KEY = ""
+REQUIRE_DEVICE_KEY = False  # True: POST /data needs the header X-API-Key: DEVICE_KEY
 FIELDS = ("temperature", "humidity", "pressure")
 STALE_AFTER = 10
 DEFAULT_VALVE_SECONDS = 60
@@ -70,6 +68,30 @@ def relay_state():
     return {"fan": fan_on, "valve": remaining > 0, "valve_remaining": round(remaining)}
 
 
+def sensor_is_fresh():
+    return bool(sensor) and time.time() - sensor["received_at"] < STALE_AFTER
+
+
+# ---- Overview ----
+
+
+@app.get("/")
+def index():
+    return jsonify(
+        name="PlantCheck API",
+        status="ok",
+        sensor_connected=sensor_is_fresh(),
+        endpoints={
+            "GET /api/sensor": "latest sensor reading",
+            "GET /api/relay": "fan and valve state",
+            "POST /api/relay": "set fan or valve",
+            "POST /data": "device: send a reading"
+            + (" (needs X-API-Key)" if REQUIRE_DEVICE_KEY else ""),
+            "GET /status": "device: get relay state",
+        },
+    )
+
+
 # ---- ESP SERVER <-> backend (team diagram) ----
 
 
@@ -110,8 +132,6 @@ def get_relay():
 @app.post("/api/relay")
 def post_relay():
     global fan_on, valve_until
-    if REQUIRE_DASH_KEY and request.headers.get("X-API-Key") != DASH_KEY:
-        return jsonify(error="unauthorized"), 401
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify(error="invalid json"), 400

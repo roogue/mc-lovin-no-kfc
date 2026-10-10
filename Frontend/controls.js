@@ -1,11 +1,10 @@
 /*
  * Device controls: Automate mode, fan toggle and irrigation countdown timer.
  *
- * Live mode (data source 'live'): every change goes to the backend through onFanChange / onIrrigationStart /
- * onIrrigationStop (POST /api/relay, see api.js; the "Control password" is only asked for if the server answers 401),
- * and the server is the source of truth: the polled relay state
+ * Live and simulation modes: every change goes to the backend (real or simulated) through onFanChange / onIrrigationStart /
+ * onIrrigationStop (POST /api/relay, see api.js), and the server is the source of truth: the polled relay state
  * ('api:relay') sets the fan and drives the watering countdown from valve_remaining. Failed commands are undone.
- * Sample / simulation modes: everything stays local, as before.
+ * Sample mode: everything stays local.
  *
  * Fires 'device:fan' and 'device:irrigation' so the plant scene can react, and listens for 'sensor:update'
  * (from sensors.js) to drive Automate mode.
@@ -27,29 +26,24 @@
   const emit = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
   const clock = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   const toast = (message, kind = 'error') => window.PlantToast && PlantToast(message, kind);
-  const isLive = () => !!(window.PlantAPI && window.PlantSensors && PlantSensors.mode === 'live');
+  // Live and simulation both talk to a backend (real or simulated), which owns the relay state
+  const isLive = () => !!(window.PlantAPI && window.PlantSensors && (PlantSensors.mode === 'live' || PlantSensors.mode === 'simulation'));
 
   /* ---------------- Backend hooks: POST /api/relay in live mode, local only otherwise ---------------- */
   let lastCommandAt = 0; // polled relay states that started before our latest command are ignored
 
-  // auto: sent by Automate (never prompts; a 401 turns Automate off)
-  // quiet: no prompt and no error message (e.g. telling the server a watering it already ended is over)
+  // quiet: no error message (e.g. telling the server a watering it already ended is over)
   // revert: undoes the optimistic UI change when the command fails
-  async function remote(body, { auto = false, quiet = false, revert } = {}) {
+  async function remote(body, { quiet = false, revert } = {}) {
     if (!isLive()) return true;
     lastCommandAt = Date.now();
     try {
-      await PlantAPI.setRelay(body, { prompt: !auto && !quiet });
+      await PlantAPI.setRelay(body);
       return true;
     } catch (err) {
       if (quiet) return false;
       if (revert) revert();
-      if (auto && (err.code === 'unauthorized' || err.code === 'no-key')) {
-        setAuto(false);
-        toast(`${err.message} Automate has been turned off; switch it on again to enter the password.`);
-      } else {
-        toast(err.message);
-      }
+      toast(err.message);
       return false;
     } finally {
       lastCommandAt = Date.now();
@@ -257,7 +251,7 @@
     const max = maxMinutes();
     const m = Math.round(Number(customInput.value));
     if (!Number.isFinite(m) || m < 1 || m > max) {
-      customInput.setCustomValidity(isLive() ? `Enter 1 to ${max} minutes (the server's limit in live mode)` : `Enter 1 to ${max} minutes`);
+      customInput.setCustomValidity(isLive() ? `Enter 1 to ${max} minutes (the server's limit)` : `Enter 1 to ${max} minutes`);
       customInput.reportValidity();
       return;
     }
@@ -326,20 +320,7 @@
     }
   }
 
-  async function setAuto(on) {
-    // Live mode: make sure the server accepts our commands before Automate starts sending them
-    // (asks for the control password only if the server needs one; the check itself changes nothing)
-    if (on && isLive()) {
-      autoToggle.disabled = true;
-      try {
-        await PlantAPI.checkAccess();
-      } catch (err) {
-        toast(err.code === 'no-key' ? 'Automate needs the control password in live mode.' : err.message);
-        return;
-      } finally {
-        autoToggle.disabled = false;
-      }
-    }
+  function setAuto(on) {
     autoOn = on;
     desiredFan = null;
     if (!isWatering() && !irrigation.classList.contains('is-done')) statusEl.textContent = idleMessage();
@@ -361,8 +342,7 @@
     else if (d.valve === false && isWatering()) stopLocal(endTime - Date.now() < 3000 ? 'completed' : 'stopped');
   });
 
-  // Switching source: show the right watering limit. If Automate is on and live mode turns out to need a
-  // password, its first command gets a 401 and it turns itself off with a message.
+  // Switching source: show the right watering limit
   document.addEventListener('sensor:source', () => renderLimits());
 
   // No readings: stop acting on stale numbers

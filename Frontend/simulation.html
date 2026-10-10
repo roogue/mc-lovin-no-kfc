@@ -106,7 +106,7 @@
 				<div class="page-head">
 					<div>
 						<h1>Simulation</h1>
-						<p>A software ESP32 and ESP server that feed the dashboard, using the same serial and HTTP messages as the real hardware.</p>
+						<p>The whole hardware path in software: ESP32, ESP server and backend, with the same messages and endpoints as the real ones. Nothing here talks to the real API.</p>
 					</div>
 					<div class="sim-head-actions">
 						<span class="dash-chip" id="dash-chip"><span class="dot"></span><span>Dashboard not open</span></span>
@@ -172,15 +172,23 @@
 								<strong>ESP32</strong>
 								<small id="flow-esp32">Fan off · Valve closed</small>
 							</div>
-							<div class="flow-wire" id="wire-serial"><span class="wire-label">Serial 115200</span></div>
+							<div class="flow-wire" id="wire-serial"><span class="wire-label">Serial</span></div>
 							<div class="flow-node">
 								<span class="flow-icon" aria-hidden="true">
-									<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="6" rx="1.5" /><rect x="4" y="14" width="16" height="6" rx="1.5" /><path d="M8 7h.01M8 17h.01" /></svg>
+									<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>
 								</span>
 								<strong>ESP server</strong>
 								<small id="flow-server">Polls /status every 3 s</small>
 							</div>
-							<div class="flow-wire" id="wire-http"><span class="wire-label">POST /data · GET /status</span></div>
+							<div class="flow-wire" id="wire-device"><span class="wire-label">POST /data<br />GET /status</span></div>
+							<div class="flow-node">
+								<span class="flow-icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="6" rx="1.5" /><rect x="4" y="14" width="16" height="6" rx="1.5" /><path d="M8 7h.01M8 17h.01" /></svg>
+								</span>
+								<strong>Backend</strong>
+								<small id="flow-backend">Fan off · valve off</small>
+							</div>
+							<div class="flow-wire" id="wire-dash"><span class="wire-label">/api/sensor<br />/api/relay</span></div>
 							<div class="flow-node">
 								<span class="flow-icon" aria-hidden="true">
 									<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
@@ -267,14 +275,14 @@
 						<div class="sim-card-head">
 							<div>
 								<h2 class="panel-title">ESP server</h2>
-								<p class="chart-sub">server.py · bridges serial and HTTP</p>
+								<p class="chart-sub">server.py · bridges the ESP32's serial port and the backend</p>
 							</div>
 						</div>
 
 						<div class="sim-row">
 							<span class="sim-label">Relay commands</span>
 							<div class="range-switch" id="server-mode" role="group" aria-label="Relay commands">
-								<button type="button" data-mode="dashboard" aria-pressed="true">From dashboard</button>
+								<button type="button" data-mode="backend" aria-pressed="true">From backend</button>
 								<button type="button" data-mode="mock" aria-pressed="false">Random (mock)</button>
 							</div>
 						</div>
@@ -286,6 +294,7 @@
 									<span class="endpoint-count"><strong id="srv-posts">0</strong> sent</span>
 								</div>
 								<pre id="srv-post">—</pre>
+								<small class="endpoint-foot" id="srv-post-status"></small>
 							</div>
 							<div class="endpoint">
 								<div class="endpoint-head">
@@ -302,6 +311,37 @@
 						<p class="sim-line-label">Recent requests</p>
 						<ul class="req-list" id="srv-requests"></ul>
 					</article>
+				</section>
+
+				<section class="card panel sim-backend" aria-labelledby="backend-title">
+					<div class="sim-card-head">
+						<div>
+							<h2 class="panel-title" id="backend-title">Backend</h2>
+							<p class="chart-sub">Backend/app.py, simulated in this tab · same endpoints and rules, never the real API</p>
+						</div>
+						<span class="sim-chip is-bad" id="backend-chip">connected: false</span>
+					</div>
+					<div class="backend-grid">
+						<div class="backend-col">
+							<h3 class="sim-subtitle">Settings</h3>
+							<div class="sim-row">
+								<span class="sim-label">REQUIRE_DEVICE_KEY</span>
+								<button type="button" class="switch" id="devicekey-toggle" role="switch" aria-checked="false" aria-label="REQUIRE_DEVICE_KEY"><span class="switch-thumb"></span></button>
+							</div>
+							<p class="sim-note">Like Weisen's script, the simulated ESP server sends no key, so turning this on makes POST /data fail with 401.</p>
+						</div>
+						<div class="backend-col">
+							<h3 class="sim-subtitle">Latest reading <small>GET /api/sensor</small></h3>
+							<pre class="backend-pre" id="be-sensor">—</pre>
+							<h3 class="sim-subtitle">Relays <small>GET /api/relay</small></h3>
+							<pre class="backend-pre" id="be-relay">—</pre>
+							<p class="sim-note">"connected" turns false 10 s after the last reading. Watering is capped at 600 s and the valve turns itself off when time is up.</p>
+						</div>
+						<div class="backend-col">
+							<h3 class="sim-subtitle">Requests</h3>
+							<ul class="req-list" id="be-requests"></ul>
+						</div>
+					</div>
 				</section>
 
 				<section class="card panel serial-card" aria-labelledby="serial-title">
