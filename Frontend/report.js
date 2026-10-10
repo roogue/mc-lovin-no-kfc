@@ -269,6 +269,20 @@ function closeReport() {
 	activeReportId = null;
 }
 
+// Calling window.print() right after writing the report's innerHTML can race
+// the browser's layout/paint — some machines print a blank page because the
+// freshly-injected DOM hasn't been laid out yet. Waiting for webfonts plus a
+// couple of animation frames guarantees the modal has actually been painted
+// before print() captures it.
+function printActiveReport() {
+	const triggerPrint = () => requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+	if (document.fonts && document.fonts.ready) {
+		document.fonts.ready.then(triggerPrint, triggerPrint);
+	} else {
+		triggerPrint();
+	}
+}
+
 grid.addEventListener("click", (event) => {
 	const viewBtn = event.target.closest("[data-view]");
 	const exportBtnInGrid = event.target.closest("[data-export]");
@@ -276,12 +290,12 @@ grid.addEventListener("click", (event) => {
 		openReport(viewBtn.dataset.view);
 	} else if (exportBtnInGrid) {
 		openReport(exportBtnInGrid.dataset.export);
-		window.print();
+		printActiveReport();
 	}
 });
 
 closeBtn.addEventListener("click", closeReport);
-exportBtn.addEventListener("click", () => window.print());
+exportBtn.addEventListener("click", printActiveReport);
 
 modal.addEventListener("click", (event) => {
 	if (event.target === modal) closeReport();

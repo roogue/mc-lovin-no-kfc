@@ -467,6 +467,16 @@
 
 /* ========== Print / PDF export ========== */
 @media print {
+  /* Without this, browsers vary (by machine/OS default) in whether they keep
+     background colors and other non-text styling when printing — some strip
+     them entirely, which is why the same page can look flat on one machine
+     and fully colored on another. Forcing it here removes that variance. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
   body * {
     visibility: hidden;
   }
