@@ -10,6 +10,7 @@ CORS(app)
 DEVICE_KEY = os.environ["DEVICE_KEY"]
 DASH_KEY = os.environ["DASH_KEY"]
 REQUIRE_DEVICE_KEY = os.environ.get("REQUIRE_DEVICE_KEY") == "1"
+REQUIRE_DASH_KEY = os.environ.get("REQUIRE_DASH_KEY", "1") == "1"
 FIELDS = ("temperature", "humidity", "pressure")
 STALE_AFTER = 10
 DEFAULT_VALVE_SECONDS = 60
@@ -67,7 +68,7 @@ def get_relay():
 @app.post("/api/relay")
 def post_relay():
     global fan_on, valve_until
-    if request.headers.get("X-API-Key") != DASH_KEY:
+    if REQUIRE_DASH_KEY and request.headers.get("X-API-Key") != DASH_KEY:
         return jsonify(error="unauthorized"), 401
     data = request.get_json(silent=True)
     if not isinstance(data, dict):

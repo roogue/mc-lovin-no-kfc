@@ -1,58 +1,144 @@
+"""
+ESP SERVER: bridge between the ESP32 (USB serial) and the PlantCheck API.
+
+  ESP32 --serial--> this script --POST /data-->  api.putrinaqibah.com
+  ESP32 <--serial-- this script <--GET /status-- api.putrinaqibah.com
+
+- Sends each new sensor reading to POST /data.
+- Polls GET /status every second and writes the fan/valve state to the ESP32
+  on every poll, so a rebooted ESP32 catches up within a second.
+- Keeps running if the API restarts or the internet drops, and reconnects
+  if the USB cable is unplugged.
+
+Run:
+  pip install pyserial requests
+  python server.py
+
+Optional settings (PowerShell examples):
+  $env:SERIAL_PORT="COM4"
+  $env:DEVICE_KEY="..."      # only needed once REQUIRE_DEVICE_KEY is on
+"""
+
 import json
-import random
+import os
 import time
+
+import requests
 import serial
 
-SERIAL_PORT = "COM3"  # Change to your actual port (e.g., 'COM4' or '/dev/ttyACM0')
+SERIAL_PORT = os.getenv("SERIAL_PORT", "COM3")
 BAUD_RATE = 115200
-COMMAND_INTERVAL = 3.0  # Send mock control states every 3 seconds
+API = os.getenv("PLANT_API", "https://api.putrinaqibah.com").rstrip("/")
+DEVICE_KEY = os.getenv("DEVICE_KEY", "")
+HEADERS = {"X-API-Key": DEVICE_KEY} if DEVICE_KEY else {}
+POLL_EVERY = 1.0          # seconds between GET /status calls
+FIELDS = ("temperature", "humidity", "pressure")
 
-def run_serial_controller():
+session = requests.Session()
+_last_message = None
+
+
+def report(message):
+    """Print a status message, but don't repeat the same one every second."""
+    global _last_message
+    if message != _last_message:
+        print(message)
+        _last_message = message
+
+
+def is_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def read_newest_reading(ser, buf):
+    """Read everything waiting on serial. Returns (newest valid reading or None, leftover bytes)."""
+    buf += ser.read(ser.in_waiting or 1)  # read(1) waits up to the 0.1 s timeout when idle
+    *lines, buf = buf.split(b"\n")
+    if len(buf) > 4096:                    # no newline for a long time: drop the junk
+        buf = b""
+
+    newest = None
+    for raw in lines:
+        text = raw.decode("utf-8", errors="replace").strip()
+        if not text:
+            continue
+        try:
+            msg = json.loads(text)
+        except json.JSONDecodeError:
+            continue                       # boot noise, or 'nan' when the BME280 is missing
+        if not isinstance(msg, dict):
+            continue
+        if "error" in msg:
+            report(f"[ESP32] {msg['error']}")
+            continue
+        if all(is_number(msg.get(k)) for k in FIELDS):
+            newest = {k: msg[k] for k in FIELDS}
+    return newest, buf
+
+
+def post_reading(reading):
     try:
-        # Short read timeout ensures loop remains responsive to transmit timers
-        ser = serial.Serial(port=SERIAL_PORT, baudrate=BAUD_RATE, timeout=0.1)
-        time.sleep(2)  # Allow ESP32-S3 to finish reset
-        ser.reset_input_buffer()
-        print(f"Connected to {SERIAL_PORT}. Monitoring and sending mock commands...\n")
+        r = session.post(f"{API}/data", json=reading, headers=HEADERS, timeout=3)
+        if r.status_code == 200:
+            report("[API] sending readings OK")
+        else:
+            report(f"[API] POST /data returned {r.status_code}: {r.text[:200]}")
+    except requests.RequestException as e:
+        report(f"[API] POST /data failed, will retry: {e}")
 
-        last_command_time = time.time()
 
-        while True:
-            # 1. Read telemetry incoming from the ESP32-S3
-            raw_line = ser.readline().decode("utf-8", errors="replace").strip()
-            if raw_line:
-                try:
-                    telemetry = json.loads(raw_line)
-                    temp = telemetry.get("temperature", 0.0)
-                    hum = telemetry.get("humidity", 0.0)
-                    press = telemetry.get("pressure", 0.0)
-                    print(f"[RECV SENSOR] Temp: {temp:>5.2f} °C | Hum: {hum:>5.2f}% | Press: {press:>7.2f} hPa")
-                except json.JSONDecodeError:
-                    pass
+def poll_status(ser, last_relay):
+    """Get the wanted fan/valve state and write it to the ESP32. Returns the state sent."""
+    try:
+        r = session.get(f"{API}/status", headers=HEADERS, timeout=3)
+        r.raise_for_status()
+        data = r.json()
+    except (requests.RequestException, ValueError) as e:
+        report(f"[API] GET /status failed, will retry: {e}")
+        return last_relay
 
-            # 2. Mock trigger: Send random relay states on schedule
-            current_time = time.time()
-            if current_time - last_command_time >= COMMAND_INTERVAL:
-                last_command_time = current_time
+    desired = {"fan": bool(data.get("fan")), "valve": bool(data.get("valve"))}
+    ser.write((json.dumps(desired) + "\n").encode("utf-8"))  # every poll, not only on change
+    if desired != last_relay:
+        fan = "ON " if desired["fan"] else "OFF"
+        valve = "ON " if desired["valve"] else "OFF"
+        print(f"[RELAY] Fan -> {fan} | Valve -> {valve}")
+    return desired
 
-                cmd_payload = {
-                    "fan": random.choice([True, False]),
-                    "valve": random.choice([True, False])
-                }
-                
-                # Serial line must terminate with '\n'
-                payload_str = json.dumps(cmd_payload) + "\n"
-                ser.write(payload_str.encode("utf-8"))
-                print(f"[SENT RELAY ] Fan -> {'ON ' if cmd_payload['fan'] else 'OFF'} | Valve -> {'ON ' if cmd_payload['valve'] else 'OFF'}")
 
-    except serial.SerialException as err:
-        print(f"Serial connection error: {err}")
-    except KeyboardInterrupt:
-        print("\nStopping controller.")
-    finally:
-        if "ser" in locals() and ser.is_open:
-            ser.close()
-            print("Port closed.")
+def bridge(ser):
+    buf = b""
+    last_poll = 0.0
+    last_relay = None
+    while True:
+        reading, buf = read_newest_reading(ser, buf)
+        if reading:
+            print(f"[SENSOR] Temp: {reading['temperature']:>5.2f} °C | "
+                  f"Hum: {reading['humidity']:>5.2f}% | Press: {reading['pressure']:>7.2f} hPa")
+            post_reading(reading)
+
+        now = time.time()
+        if now - last_poll >= POLL_EVERY:
+            last_poll = now
+            last_relay = poll_status(ser, last_relay)
+
+
+def main():
+    print(f"API: {API}  |  serial: {SERIAL_PORT}  |  device key: {'set' if DEVICE_KEY else 'not set'}")
+    while True:  # keep reconnecting if the USB cable is pulled
+        try:
+            with serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=0.1) as ser:
+                time.sleep(2)              # let the ESP32 finish resetting
+                ser.reset_input_buffer()
+                print(f"Connected to {SERIAL_PORT}")
+                bridge(ser)
+        except (serial.SerialException, OSError) as e:
+            report(f"[SERIAL] {e}. Retrying in 3 s...")
+            time.sleep(3)
+
 
 if __name__ == "__main__":
-    run_serial_controller()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nStopped.")

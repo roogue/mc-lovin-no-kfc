@@ -2,7 +2,8 @@
  * Device controls: Automate mode, fan toggle and irrigation countdown timer.
  *
  * Live mode (data source 'live'): every change goes to the backend through onFanChange / onIrrigationStart /
- * onIrrigationStop (POST /api/relay, see api.js), and the server is the source of truth: the polled relay state
+ * onIrrigationStop (POST /api/relay, see api.js; the "Control password" is only asked for if the server answers 401),
+ * and the server is the source of truth: the polled relay state
  * ('api:relay') sets the fan and drives the watering countdown from valve_remaining. Failed commands are undone.
  * Sample / simulation modes: everything stays local, as before.
  *
@@ -31,12 +32,11 @@
   /* ---------------- Backend hooks: POST /api/relay in live mode, local only otherwise ---------------- */
   let lastCommandAt = 0; // polled relay states that started before our latest command are ignored
 
-  // auto: sent by Automate (never prompts; a password problem turns Automate off)
+  // auto: sent by Automate (never prompts; a 401 turns Automate off)
   // quiet: no prompt and no error message (e.g. telling the server a watering it already ended is over)
   // revert: undoes the optimistic UI change when the command fails
   async function remote(body, { auto = false, quiet = false, revert } = {}) {
     if (!isLive()) return true;
-    if (quiet && !PlantAPI.hasKey()) return true;
     lastCommandAt = Date.now();
     try {
       await PlantAPI.setRelay(body, { prompt: !auto && !quiet });
@@ -46,7 +46,7 @@
       if (revert) revert();
       if (auto && (err.code === 'unauthorized' || err.code === 'no-key')) {
         setAuto(false);
-        toast(`${err.message} Automate has been turned off.`);
+        toast(`${err.message} Automate has been turned off; switch it on again to enter the password.`);
       } else {
         toast(err.message);
       }
@@ -326,10 +326,19 @@
     }
   }
 
-  function setAuto(on) {
-    if (on && isLive() && !PlantAPI.hasKey() && !PlantAPI.askKey()) {
-      toast('Automate needs the control password in live mode.');
-      return;
+  async function setAuto(on) {
+    // Live mode: make sure the server accepts our commands before Automate starts sending them
+    // (asks for the control password only if the server needs one; the check itself changes nothing)
+    if (on && isLive()) {
+      autoToggle.disabled = true;
+      try {
+        await PlantAPI.checkAccess();
+      } catch (err) {
+        toast(err.code === 'no-key' ? 'Automate needs the control password in live mode.' : err.message);
+        return;
+      } finally {
+        autoToggle.disabled = false;
+      }
     }
     autoOn = on;
     desiredFan = null;
@@ -352,13 +361,9 @@
     else if (d.valve === false && isWatering()) stopLocal(endTime - Date.now() < 3000 ? 'completed' : 'stopped');
   });
 
-  document.addEventListener('sensor:source', () => {
-    renderLimits();
-    if (autoOn && isLive() && !PlantAPI.hasKey()) {
-      setAuto(false);
-      toast('Automate was turned off: live mode needs the control password. Switch it on again to enter it.', 'info');
-    }
-  });
+  // Switching source: show the right watering limit. If Automate is on and live mode turns out to need a
+  // password, its first command gets a 401 and it turns itself off with a message.
+  document.addEventListener('sensor:source', () => renderLimits());
 
   // No readings: stop acting on stale numbers
   document.addEventListener('sensor:lost', () => {

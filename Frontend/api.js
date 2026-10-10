@@ -1,8 +1,9 @@
 // Talks to the Plant Check backend (Backend/app.py) for live data. Base URL comes from window.API_CONFIG in index.html.
 //   GET  /api/sensor → { temperature, humidity, pressure, received_at, age, connected } or { connected: false }
 //   GET  /api/relay  → { fan, valve, valve_remaining }
-//   POST /api/relay  → header X-API-Key (the dashboard's "Control password"); body { fan } / { valve: true, seconds } / { valve: false }
-// The password is never stored in code: it's asked for on first use and kept in sessionStorage for this tab only.
+//   POST /api/relay  → body { fan } / { valve: true, seconds } / { valve: false }; header X-API-Key only if the server wants it
+// Commands are sent without a password first. Only if the server answers 401 (REQUIRE_DASH_KEY on) is the
+// "Control password" asked for; once it works it's remembered in localStorage. It's never stored in code.
 // Successful relay commands fire 'api:relay' with the new state so the controls can resync.
 
 window.PlantAPI = (function () {
@@ -47,19 +48,19 @@ window.PlantAPI = (function () {
 		}
 	}
 
-	/* ---------- control password (sessionStorage, this tab only) ---------- */
+	/* ---------- control password (remembered in localStorage once one is needed) ---------- */
+	let memoryKey = ""; // fallback when localStorage is blocked
 	function getKey() {
 		try {
-			return sessionStorage.getItem(KEY_STORE) || "";
+			return localStorage.getItem(KEY_STORE) || "";
 		} catch {
 			return memoryKey;
 		}
 	}
-	let memoryKey = ""; // fallback when sessionStorage is blocked
 	function setKey(key) {
 		memoryKey = key;
 		try {
-			sessionStorage.setItem(KEY_STORE, key);
+			localStorage.setItem(KEY_STORE, key);
 		} catch {
 			/* keep it in memory only */
 		}
@@ -67,32 +68,34 @@ window.PlantAPI = (function () {
 	function clearKey() {
 		memoryKey = "";
 		try {
-			sessionStorage.removeItem(KEY_STORE);
+			localStorage.removeItem(KEY_STORE);
 		} catch {
 			/* nothing stored */
 		}
 	}
-	function askKey() {
-		const key = (window.prompt("Control password") || "").trim();
-		if (key) setKey(key);
-		return key;
-	}
+	const askKey = (message) => (window.prompt(message) || "").trim();
 
-	// prompt: ask for the password if this tab doesn't have one yet (manual controls do; Automate never does)
-	async function setRelay(body, { prompt = true } = {}) {
-		let key = getKey();
-		if (!key && prompt) key = askKey();
-		if (!key) throw new RelayError("no-key", "The control password is needed to switch the fan or valve.");
-
-		let res;
+	async function post(body, key) {
 		try {
-			res = await request("/api/relay", { method: "POST", body, key });
+			return await request("/api/relay", { method: "POST", body, key });
 		} catch {
 			throw new RelayError("network", "Couldn't reach the server. Nothing was changed.");
 		}
+	}
+
+	// Sends without a password (or with the remembered one). On a 401: prompt=true asks for the password and tries once
+	// more (manual controls); prompt=false gives up straight away (Automate, background calls).
+	async function setRelay(body, { prompt = true } = {}) {
+		const remembered = getKey();
+		let res = await post(body, remembered);
 		if (res.status === 401) {
-			clearKey();
-			throw new RelayError("unauthorized", "Wrong control password. Nothing was changed.");
+			if (remembered) clearKey(); // the remembered password no longer works
+			if (!prompt) throw new RelayError("unauthorized", "The server needs the control password. Nothing was changed.");
+			const key = askKey(remembered ? "That control password no longer works. Control password" : "Control password");
+			if (!key) throw new RelayError("no-key", "The control password is needed to switch the fan or valve. Nothing was changed.");
+			res = await post(body, key);
+			if (res.status === 401) throw new RelayError("unauthorized", "Wrong control password. Nothing was changed.");
+			if (res.ok) setKey(key); // it works: remember it
 		}
 		if (!res.ok || !res.data) {
 			throw new RelayError("failed", `The server refused the command${res.data && res.data.error ? `: ${res.data.error}` : ` (${res.status})`}.`);
@@ -108,8 +111,9 @@ window.PlantAPI = (function () {
 		getSensor: () => request("/api/sensor"),
 		getRelay: () => request("/api/relay"),
 		setRelay,
+		// Checks the server will accept our commands (asking for the password if needed). The empty body changes nothing.
+		checkAccess: () => setRelay({}, { prompt: true }),
 		hasKey: () => !!getKey(),
-		askKey,
 		clearKey,
 	};
 })();
