@@ -157,6 +157,103 @@
 		);
 	}
 
+	// ----- Photo scan: upload -> backend -> DeepSeek, JSON result shown in the scan card -----
+	const MAX_SCAN_BYTES = 8 * 1024 * 1024;
+	const SCAN_MIMES = ["image/jpeg", "image/png", "image/webp"];
+	const SCAN_STATUS = {
+		healthy: "Healthy",
+		diseased: "Diseased",
+		pest_damage: "Pest damage",
+		nutrient_deficiency: "Nutrient deficiency",
+		other: "Other",
+	};
+	let scanFile = null;
+	let previewUrl = "";
+
+	function scanError(msg) {
+		const el = $("scan-error");
+		el.textContent = msg || "";
+		el.hidden = !msg;
+	}
+
+	function titleCase(s) {
+		return String(s || "–").replace(/^./, (c) => c.toUpperCase());
+	}
+
+	function renderScanResult(r) {
+		const pct = Math.min(100, Math.max(0, Number(r.health_percentage) || 0));
+		$("scan-health").textContent = `${pct}%`;
+		const fill = $("scan-health-fill");
+		fill.style.width = `${pct}%`;
+		fill.className = pct >= 70 ? "is-good" : pct >= 40 ? "is-fair" : "is-poor";
+
+		$("scan-status").textContent = SCAN_STATUS[r.status] || titleCase(r.status);
+		$("scan-issue").textContent = r.issue || "";
+		$("scan-issue-row").hidden = !r.issue;
+		$("scan-confidence").textContent = titleCase(r.confidence);
+		$("scan-description").textContent = r.description || "";
+
+		const recs = Array.isArray(r.recommendations) ? r.recommendations : [];
+		$("scan-recs").hidden = !recs.length;
+		$("scan-recommendations").replaceChildren(
+			...recs.map((step) => {
+				const li = document.createElement("li");
+				li.textContent = step;
+				return li;
+			}),
+		);
+		$("scan-result").hidden = false;
+	}
+
+	function initScan() {
+		const input = $("scan-input");
+		const submit = $("scan-submit");
+
+		input.addEventListener("change", () => {
+			scanError("");
+			$("scan-result").hidden = true;
+			scanFile = null;
+			if (previewUrl) URL.revokeObjectURL(previewUrl);
+			previewUrl = "";
+			$("scan-preview").hidden = true;
+			$("scan-drop-text").hidden = false;
+
+			const file = input.files && input.files[0];
+			if (!file) return;
+			if (!SCAN_MIMES.includes(file.type)) return scanError("Please pick a jpeg, png or webp image.");
+			if (file.size > MAX_SCAN_BYTES) return scanError("That image is over 8 MB — please pick a smaller one.");
+
+			scanFile = file;
+			previewUrl = URL.createObjectURL(file);
+			$("scan-preview").src = previewUrl;
+			$("scan-preview").hidden = false;
+			$("scan-drop-text").hidden = true;
+		});
+
+		submit.addEventListener("click", async () => {
+			if (!scanFile) return scanError("Please upload a plant photo first.");
+			scanError("");
+			$("scan-result").hidden = true;
+			submit.disabled = true;
+			submit.textContent = "Analysing…";
+			try {
+				const base = String((window.API_CONFIG || {}).baseUrl || "").replace(/\/+$/, "");
+				const form = new FormData();
+				form.append("image", scanFile);
+				const res = await fetch(`${base}/api/disease-scan`, { method: "POST", body: form });
+				const data = await res.json().catch(() => ({}));
+				if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+				renderScanResult(data);
+			} catch (err) {
+				scanError(err instanceof TypeError ? "Couldn't reach the server — is the backend running?" : err.message);
+			} finally {
+				submit.disabled = false;
+				submit.textContent = "Analyse photo";
+			}
+		});
+	}
+	initScan();
+
 	renderGuide([]);
 
 	fetch(DATA_URL, { cache: "no-store" })

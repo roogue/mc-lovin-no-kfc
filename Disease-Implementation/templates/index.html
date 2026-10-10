@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant Disease Detection</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 600px;
+            margin: 48px auto;
+            padding: 0 20px;
+            background: #f5f7fa;
+            color: #1f2937;
+        }
+
+        h1 {
+            text-align: center;
+            color: #047857;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 28px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        input[type="file"] {
+            padding: 10px;
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button {
+            padding: 12px 20px;
+            background: #047857;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #065f46;
+        }
+
+        .preview {
+            margin-top: 24px;
+            text-align: center;
+        }
+
+        .preview img {
+            max-width: 100%;
+            max-height: 320px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .results {
+            margin-top: 24px;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .result-row:last-child {
+            border-bottom: none;
+        }
+
+        .label {
+            font-weight: 500;
+        }
+
+        .score {
+            color: #047857;
+            font-weight: 600;
+        }
+
+        .error {
+            color: #b91c1c;
+            background: #fee2e2;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Plant Disease Detection</h1>
+    <div class="card">
+        <form class="upload-form" method="POST" enctype="multipart/form-data">
+            <input type="file" name="image" accept="image/*" required>
+            <button type="submit">Run Model</button>
+        </form>
+
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+
+        {% if image_url %}
+        <div class="preview">
+            <img src="{{ image_url }}" alt="Uploaded leaf">
+        </div>
+        {% endif %}
+
+        {% if analysis %}
+        <div class="results">
+            <h3>Model Analysis</h3>
+            <div class="result-row">
+                <span class="label">Health Score</span>
+                <span class="score">{{ analysis.health_percentage }}%</span>
+            </div>
+            <div class="result-row">
+                <span class="label">Status</span>
+                <span class="score">{{ analysis.status | title }}</span>
+            </div>
+            {% if analysis.issue %}
+            <div class="result-row">
+                <span class="label">Issue</span>
+                <span class="score">{{ analysis.issue }}</span>
+            </div>
+            {% endif %}
+            <div class="result-row">
+                <span class="label">Confidence</span>
+                <span class="score">{{ analysis.confidence | title }}</span>
+            </div>
+            <div class="result-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                <span class="label">Description</span>
+                <span>{{ analysis.description }}</span>
+            </div>
+            {% if analysis.recommendations %}
+            <div class="result-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                <span class="label">Recommendations</span>
+                <ol style="margin: 0; padding-left: 18px;">
+                    {% for rec in analysis.recommendations %}
+                    <li>{{ rec }}</li>
+                    {% endfor %}
+                </ol>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</body>
+
+</html>
