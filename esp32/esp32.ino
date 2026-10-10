@@ -7,37 +7,42 @@
 #define I2C_SDA 8
 #define I2C_SCL 9
 
-// Safe Relay Pins
-#define PIN_FAN   10
-#define PIN_VALVE 11
+// Actuator Pins
+#define PIN_FAN   10  // Relay for fan (Active-LOW)
+#define PIN_VALVE 11  // LED for simulated valve (Active-HIGH)
 
-// Relay logic: Set HIGH if your relay is Active-HIGH, or LOW if Active-LOW
-#define RELAY_ON  HIGH
-#define RELAY_OFF LOW
+// Relay Logic for Fan
+#define RELAY_ON  LOW
+#define RELAY_OFF HIGH
+
+// LED Logic for Valve
+#define LED_ON    HIGH
+#define LED_OFF   LOW
 
 Adafruit_BME280 bme;
 
-unsigned long previousMillis = 0;
-const unsigned long txInterval = 1000; // Send telemetry every 1000 ms
+unsigned long previousTxMillis = 0;
+const unsigned long txInterval = 1000;
 
 String serialRxBuffer = "";
 
 void setup() {
   Serial.begin(115200);
 
-  // Initialize Relay GPIOs as outputs in the OFF state
+  // 1. Initialize Actuator Pins
   pinMode(PIN_FAN, OUTPUT);
   pinMode(PIN_VALVE, OUTPUT);
+
   digitalWrite(PIN_FAN, RELAY_OFF);
-  digitalWrite(PIN_VALVE, RELAY_OFF);
+  digitalWrite(PIN_VALVE, LED_OFF);
 
   unsigned long start = millis();
   while (!Serial && (millis() - start < 2000)) {
     delay(10);
   }
 
+  // 2. Initialize BME280 Sensor
   Wire.begin(I2C_SDA, I2C_SCL);
-
   if (!bme.begin(0x76, &Wire) && !bme.begin(0x77, &Wire)) {
     Serial.println("{\"error\": \"BME280 not found on 0x76 or 0x77\"}");
   }
@@ -48,17 +53,19 @@ void processIncomingCommand(const String& jsonStr) {
   DeserializationError err = deserializeJson(doc, jsonStr);
 
   if (err) {
-    return; // Ignore malformed packets or boot junk
+    return; // Ignore malformed JSON or boot junk
   }
 
+  // Fan Relay Control
   if (doc.containsKey("fan")) {
     bool fanState = doc["fan"];
     digitalWrite(PIN_FAN, fanState ? RELAY_ON : RELAY_OFF);
   }
 
+  // Valve LED Control
   if (doc.containsKey("valve")) {
     bool valveState = doc["valve"];
-    digitalWrite(PIN_VALVE, valveState ? RELAY_ON : RELAY_OFF);
+    digitalWrite(PIN_VALVE, valveState ? LED_ON : LED_OFF);
   }
 }
 
@@ -78,13 +85,13 @@ void readSerialCommands() {
 }
 
 void loop() {
-  // 1. Non-blocking read of control commands from Python
+  // 1. Read commands from Python
   readSerialCommands();
 
-  // 2. Transmit sensor data at 1-second intervals
+  // 2. Read sensor and transmit JSON telemetry every 1 second
   unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= txInterval) {
-    previousMillis = currentMillis;
+  if (currentMillis - previousTxMillis >= txInterval) {
+    previousTxMillis = currentMillis;
 
     float temperature = bme.readTemperature();
     float humidity    = bme.readHumidity();
