@@ -246,4 +246,16 @@
 
   renderFan();
   renderAuto();
+
+  // Lets other parts of the page (e.g. the status banner's buttons) act on the devices
+  window.PlantControls = {
+    water(minutes = 1) {
+      if (!isWatering()) start(minutes, `${minutes} min`);
+    },
+    fanOn() {
+      setFan(true);
+    },
+    get watering() { return isWatering(); },
+    get fan() { return fanOn; },
+  };
 })();
