@@ -231,7 +231,7 @@ svg {
 .temperature   { background: linear-gradient(180deg, #FF9E9F 0%, #A3B4FF 100%); }
 .humidity      { background: linear-gradient(180deg, #4CD179 0%, #BADFC4 100%); }
 .precipitation { background: linear-gradient(180deg, #6FD1FF 0%, #B7E8FF 100%); }
-.weather       { background: #EFEFEF; color: var(--text); }
+.weather       { background: #FFFFFF; color: var(--text); border: 1px solid var(--border); }
 
 .stat-label {
   display: flex;
@@ -286,9 +286,11 @@ svg {
   flex-shrink: 0;
 }
 
-.weather-icon svg {
+.weather-icon img {
+  display: block;
   width: 100%;
   height: 100%;
+  object-fit: contain;
 }
 
 .weather-text {
@@ -302,7 +304,7 @@ svg {
 
 .weather-location {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
   margin-top: 6px;
   min-width: 0;
@@ -312,14 +314,14 @@ svg {
 }
 
 .weather-location span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .weather-location svg {
   width: 13px;
   height: 13px;
+  margin-top: 1px;
   flex-shrink: 0;
   fill: none;
   stroke: currentColor;
@@ -357,7 +359,9 @@ svg {
 .plant-card {
   --state-color: #2E9E57;
   --health: 92%;
+  --plant-radius: 20px;
   position: relative;
+  border-radius: var(--plant-radius);
   min-height: 460px;
   padding: 0;
   overflow: hidden;
@@ -374,6 +378,10 @@ svg {
   position: absolute;
   inset: 0;
   z-index: -1;
+  /* clip the WebGL canvas itself so the corners stay rounded in every browser */
+  border-radius: var(--plant-radius);
+  overflow: hidden;
+  clip-path: inset(0 round var(--plant-radius));
 }
 
 .plant-scene canvas {
@@ -452,6 +460,58 @@ svg {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.plant-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.cam-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.6s ease, color 0.6s ease;
+}
+
+.cam-btn:hover {
+  transform: scale(1.06);
+}
+
+.cam-btn:active {
+  transform: scale(0.94);
+}
+
+.cam-btn:focus-visible {
+  outline: 2px solid var(--state-color);
+  outline-offset: 2px;
+}
+
+.cam-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.live-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #FF4D4F;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+  animation: blink 1.6s ease-in-out infinite;
 }
 
 .status-card {
@@ -556,6 +616,11 @@ svg {
 .state-switch button:focus-visible {
   outline: 2px solid var(--state-color);
   outline-offset: 2px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
 }
 
 @keyframes pop {
@@ -966,6 +1031,214 @@ svg {
 @media (prefers-reduced-motion: reduce) {
   #fan-control.is-on .fan-icon svg,
   .irrigation.is-running .water-icon svg {
+    animation: none;
+  }
+}
+
+/* ----- CCTV lightbox ----- */
+.cctv {
+  width: min(960px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100vh - 32px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #F3F4F6;
+  overflow: visible;
+}
+
+.cctv::backdrop {
+  background: rgba(8, 10, 18, 0.72);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.cctv[open] {
+  animation: cctv-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.cctv-panel {
+  overflow: hidden;
+  border-radius: 18px;
+  background: #0F1115;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.cctv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.cctv-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.cctv-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 12px;
+  color: #9CA3AF;
+}
+
+.cctv-close {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #F3F4F6;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.cctv-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.cctv-close:active {
+  transform: scale(0.92);
+}
+
+.cctv-close:focus-visible {
+  outline: 2px solid #6FD1FF;
+  outline-offset: 2px;
+}
+
+.cctv-close svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.cctv-screen {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  max-height: calc(100vh - 120px);
+  overflow: hidden;
+  background: #000000;
+}
+
+.cctv-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cctv-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #9CA3AF;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 3px),
+    radial-gradient(circle at center, #1C2028 0%, #07080A 75%);
+}
+
+.cctv-empty[hidden] {
+  display: none;
+}
+
+.cctv-empty::after {
+  /* slow scan line rolling down the screen */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%);
+  background-size: 100% 30%;
+  background-repeat: no-repeat;
+  animation: scan 4s linear infinite;
+  pointer-events: none;
+}
+
+.cctv-empty svg {
+  width: 40px;
+  height: 40px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cctv-empty strong {
+  font-size: 15px;
+  color: #E5E7EB;
+}
+
+.cctv-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: #FFFFFF;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.cctv-cam,
+.cctv-rec,
+.cctv-time {
+  position: absolute;
+}
+
+.cctv-cam  { top: 12px; left: 14px; }
+.cctv-rec  { top: 12px; right: 14px; display: flex; align-items: center; gap: 6px; }
+.cctv-time { bottom: 12px; left: 14px; font-variant-numeric: tabular-nums; }
+
+.rec-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6B7280;
+}
+
+.cctv.is-live .rec-dot {
+  background: #FF4D4F;
+  animation: blink 1.2s steps(2, jump-none) infinite;
+}
+
+.cctv:not(.is-live) .cctv-rec {
+  opacity: 0.5;
+}
+
+@keyframes cctv-in {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes scan {
+  from { background-position: 0 -40%; }
+  to   { background-position: 0 140%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot,
+  .cctv[open],
+  .cctv.is-live .rec-dot,
+  .cctv-empty::after {
     animation: none;
   }
 }

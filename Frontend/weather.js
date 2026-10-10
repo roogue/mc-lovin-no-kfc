@@ -1,5 +1,5 @@
 /*
- * Weather card: live conditions from the Google Maps Platform Weather API,
+ * Weather + Precipitation cards: live conditions from the Google Maps Platform Weather API,
  * place name from the Geocoding API (same key).
  *
  * Setup: paste your API key into WEATHER_CONFIG in index.html. Without a key the card shows demo data.
@@ -21,6 +21,8 @@
     icon: document.getElementById('weather-icon'),
     text: document.getElementById('weather-text'),
     sub: document.getElementById('weather-sub'),
+    precipValue: document.getElementById('precip-value'),
+    precipSub: document.getElementById('precip-sub'),
   };
   if (!els.text) return;
 
@@ -48,36 +50,45 @@
     return 'partly';
   }
 
-  const SUN = '<circle cx="24" cy="24" r="11" fill="#FFC94D"/>';
-  const MOON = '<path d="M30 10a14 14 0 1 0 12 22A12 12 0 0 1 30 10z" fill="#F4E3A1"/>';
-  const CLOUD = (fill) => `<path d="M22 50a10 10 0 0 1-1-19.9A13 13 0 0 1 45.5 33 8.5 8.5 0 0 1 46 50z" fill="${fill}"/>`;
-  const CLOUD_HIGH = (fill) => `<path d="M22 40a10 10 0 0 1-1-19.9A13 13 0 0 1 45.5 23 8.5 8.5 0 0 1 46 40z" fill="${fill}"/>`;
+  // Google weather icons (https://developers.google.com/maps/documentation/weather/weather-condition-icons).
+  // The live API gives us the exact icon; this map is for demo mode and as a fallback.
+  const ICON_BASE = 'https://maps.gstatic.com/weather/v1/';
+  const ICONS = {
+    clear:  { day: 'sunny', night: 'clear' },
+    partly: { day: 'partly_cloudy', night: 'partly_clear' },
+    cloudy: { day: 'cloudy', night: 'cloudy' },
+    fog:    { day: 'mist', night: 'mist' },
+    rain:   { day: 'showers', night: 'showers' },
+    storm:  { day: 'strong_tstorms', night: 'strong_tstorms' },
+    snow:   { day: 'snow_showers', night: 'snow_showers' },
+  };
+  const iconFor = (kind, night) => `${ICON_BASE}${ICONS[kind][night ? 'night' : 'day']}.svg`;
 
-  function iconSvg(kind, night) {
-    const body = {
-      clear:  night ? '<path d="M38 12a18 18 0 1 0 14 28A15 15 0 0 1 38 12z" fill="#F4E3A1"/>' : '<circle cx="32" cy="32" r="16" fill="#FFE7A0"/><circle cx="32" cy="32" r="12" fill="#FFC94D"/>',
-      partly: (night ? MOON : SUN) + CLOUD('#FFFFFF'),
-      cloudy: '<path d="M30 40a9 9 0 0 1-1-17.9A11 11 0 0 1 50 24a7 7 0 0 1 0 14z" fill="#C9CED6"/>' + CLOUD('#FFFFFF'),
-      fog:    CLOUD_HIGH('#D5D9DF') + '<path d="M14 46h36M18 53h30" stroke="#B4BAC4" stroke-width="4" stroke-linecap="round"/>',
-      rain:   CLOUD_HIGH('#C3CAD4') + '<path d="M24 46l-3 7M33 46l-3 7M42 46l-3 7" stroke="#4FA8F0" stroke-width="3.5" stroke-linecap="round"/>',
-      storm:  CLOUD_HIGH('#8F98A6') + '<path d="M34 40l-8 11h7l-4 9 11-13h-7l4-7z" fill="#FFC94D"/>',
-      snow:   CLOUD_HIGH('#D5D9DF') + '<g fill="#9FCBF5"><circle cx="24" cy="49" r="2.5"/><circle cx="33" cy="54" r="2.5"/><circle cx="42" cy="49" r="2.5"/></g>',
-    }[kind];
-    return `<svg viewBox="0 0 64 64" aria-hidden="true">${body}</svg>`;
+  /* ---------------- Precipitation card ---------------- */
+  const PRECIP_TYPES = { RAIN: 'rain', SNOW: 'snow', ICE: 'ice', RAIN_AND_SNOW: 'rain & snow' };
+
+  // percent: chance right now; amount: what fell in the last hour (mm or in)
+  function renderPrecip({ percent, type, amount, unit }) {
+    if (!els.precipValue || !Number.isFinite(percent)) return;
+    els.precipValue.textContent = `${Math.round(percent)}%`;
+    let sub = `Chance of ${PRECIP_TYPES[type] || 'rain'}`;
+    if (Number.isFinite(amount) && amount > 0) {
+      const inches = /INCH/.test(unit || '');
+      sub += ` · ${amount.toFixed(inches ? 2 : 1)} ${inches ? 'in' : 'mm'} last hour`;
+    }
+    els.precipSub.textContent = sub;
   }
 
   /* ---------------- Rendering ---------------- */
   function render({ type, text, windKmh, location, night, timeZone, iconUrl, muted }) {
     const kind = classify(type || text);
 
-    // Use Google's own condition icon when we have one, our SVG otherwise
-    els.icon.innerHTML = iconSvg(kind, night);
-    if (iconUrl) {
-      const img = new Image();
-      img.alt = '';
-      img.onload = () => els.icon.replaceChildren(img);
-      img.src = iconUrl;
-    }
+    const img = new Image();
+    img.alt = '';
+    img.src = iconUrl || iconFor(kind, night);
+    // If the API's icon fails to load, fall back to the matching one from our map
+    img.onerror = () => { if (img.src !== iconFor(kind, night)) img.src = iconFor(kind, night); };
+    els.icon.replaceChildren(img);
 
     els.text.textContent = text;
     els.sub.textContent = Number.isFinite(windKmh)
@@ -96,8 +107,13 @@
     storm: 'Thunderstorm', snow: 'Light snow', fog: 'Fog',
   };
 
+  const PREVIEW_PRECIP = { clear: 0, partly: 10, cloudy: 30, rain: 80, storm: 90, snow: 70, fog: 20 };
+
   function renderDemo(message) {
     const preview = new URLSearchParams(window.location.search).get('weather');
+    if (preview in PREVIEW_PRECIP) {
+      renderPrecip({ percent: PREVIEW_PRECIP[preview], type: preview === 'snow' ? 'SNOW' : 'RAIN' });
+    }
     const hour = new Date().getHours();
     render({
       text: PREVIEW[preview] || 'Partly cloudy',
@@ -170,6 +186,16 @@
     const speed = now.wind && now.wind.speed;
     let windKmh = speed ? Number(speed.value) : NaN;
     if (speed && /MILES/.test(speed.unit || '')) windKmh *= 1.609;
+
+    const precip = now.precipitation || {};
+    const probability = precip.probability || {};
+    const qpf = precip.qpf || {};
+    renderPrecip({
+      percent: Number(probability.percent),
+      type: probability.type,
+      amount: Number(qpf.quantity),
+      unit: qpf.unit,
+    });
 
     render({
       type: condition.type,
