@@ -174,9 +174,10 @@
       + `&location.latitude=${coords.lat}&location.longitude=${coords.lon}`
       + `&unitsSystem=${IMPERIAL ? 'IMPERIAL' : 'METRIC'}`;
 
+    const fixedName = String(CONFIG.locationName || '').trim();
     const [now, name] = await Promise.all([
       fetchJson(url),
-      placeName(coords).catch((err) => {
+      fixedName || placeName(coords).catch((err) => {
         console.warn('Place name lookup failed (is the Geocoding API enabled for this key?):', err);
         return '';
       }),
