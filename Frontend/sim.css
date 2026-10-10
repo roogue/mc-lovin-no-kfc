@@ -130,6 +130,155 @@ body.sim-idle .flow {
   opacity: 0.55;
 }
 
+/* ----- ML test data ----- */
+.ml-card {
+  margin-top: 20px;
+}
+
+.ml-card .chart-sub {
+  max-width: 78ch;
+  line-height: 1.5;
+}
+
+.ml-fresh {
+  flex-shrink: 0;
+  border-color: #E8B4A6;
+  color: #B4432B;
+}
+
+.ml-fresh:hover {
+  border-color: #C9573C;
+}
+
+.ml-tip {
+  margin-top: 6px;
+}
+
+.ml-status {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #F6F7F9;
+  font-size: 13px;
+}
+
+.ml-status[hidden] {
+  display: none;
+}
+
+.ml-status[data-state="done"] {
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.ml-status[data-state="error"] {
+  background: #FDF0EC;
+  color: #B4432B;
+}
+
+.ml-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.ml-scenario {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  transition: border-color 0.3s ease, background 0.3s ease;
+}
+
+.ml-scenario.is-written {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
+.ml-scenario h3 {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ml-looks,
+.ml-expect {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.ml-expect strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ml-chart {
+  padding: 8px 10px 6px;
+  border-radius: 10px;
+  background: #F6F7F9;
+}
+
+.ml-chart-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ml-spark {
+  display: block;
+  width: 100%;
+  height: 44px;
+  margin-top: 4px;
+}
+
+.ml-spark path {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.ml-spark.is-temperature path { stroke: #E0695D; }
+.ml-spark.is-humidity path    { stroke: #3D9FE0; }
+.ml-spark.is-pressure path    { stroke: #7C64C8; }
+
+.ml-values {
+  display: grid;
+  gap: 2px;
+  list-style: none;
+  font-size: 12px;
+}
+
+.ml-values li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ml-values span {
+  color: var(--text-muted);
+}
+
+.ml-values strong {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ml-write {
+  margin-top: auto;
+}
+
+@media (max-width: 720px) {
+  .ml-card .sim-card-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 /* ----- layout ----- */
 .sim-top {
   display: grid;

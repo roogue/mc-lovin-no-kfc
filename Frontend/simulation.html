@@ -106,7 +106,7 @@
 				<div class="page-head">
 					<div>
 						<h1>Simulation</h1>
-						<p>The whole hardware path in software: ESP32, ESP server and backend, with the same messages and endpoints as the real ones. Nothing here talks to the real API.</p>
+						<p>The whole hardware path in software: ESP32, ESP server and backend, with the same messages and endpoints as the real ones. The hardware simulation never talks to the real API; only the ML test data below writes to the real database.</p>
 					</div>
 					<div class="sim-head-actions">
 						<span class="dash-chip" id="dash-chip"><span class="dot"></span><span>Dashboard not open</span></span>
@@ -206,6 +206,23 @@
 							<li><span class="swatch packet-command"></span>Relay commands</li>
 						</ul>
 					</article>
+				</section>
+
+				<!-- ML test data: known 6-hour histories in the real database (see ml-scenarios.js) -->
+				<section class="card panel ml-card" id="ml-card" aria-labelledby="ml-title">
+					<div class="sim-card-head">
+						<div>
+							<h2 class="panel-title" id="ml-title">ML test data</h2>
+							<p class="chart-sub">
+								Writes a known 6-hour history into the <strong>real</strong> database, one reading every 5 minutes up to now, so you can check what the
+								prediction model makes of it. The model reads temperature, humidity, pressure and precipitation from the last 6 hours.
+							</p>
+						</div>
+						<button type="button" class="sim-btn ml-fresh" id="ml-fresh">Fresh: clear sensor table</button>
+					</div>
+					<p class="sim-note ml-tip">Press Fresh first so old readings don't mix in, and stop the ESP server while testing, or its live readings land in the same window.</p>
+					<p class="ml-status" id="ml-status" aria-live="polite" hidden></p>
+					<div class="ml-grid" id="ml-grid"></div>
 				</section>
 
 				<section class="sim-grid">
@@ -364,5 +381,8 @@
 		</div>
 
 		<script src="sim.js"></script>
+		<script src="config.js"></script>
+		<script src="history-api.js"></script>
+		<script src="ml-scenarios.js"></script>
 	</body>
 </html>

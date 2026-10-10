@@ -5,6 +5,8 @@
 //   POST /api/disease                      ← { status, issue, confidence, health_percentage, description, recommendations } → { ok, id }
 //   POST /api/disease/<id>/image           ← multipart form, field "image" (JPEG / PNG / WebP, max 10 MB) → { ok, id, image_url, bytes }
 //   image_url is a path ("/api/disease/images/<file>") on the API, or null when the scan has no photo.
+//   DELETE /api/readings                   → { ok, deleted }    clears the sensor table (simulation page, ML test data)
+//   POST /api/readings/bulk                ← { readings: [{ recorded_at, temperature, humidity, pressure, precipitation }] } → { ok, inserted }
 // Times from the API are UTC ("YYYY-MM-DD HH:MM:SS", or Unix seconds for history points); pages show local time.
 // Reading is only used in live mode (sample mode keeps reading the sample files in public/data/). Saving a photo
 // scan happens in both modes: the analysis is real either way.
@@ -31,7 +33,12 @@ window.PlantHistory = (function () {
 		return CONFIG.defaultSource === "sample" ? "sample" : "live";
 	}
 
-	class ApiError extends Error {}
+	class ApiError extends Error {
+		constructor(message, status = null) {
+			super(message);
+			this.status = status; // HTTP status, or null when the API couldn't be reached
+		}
+	}
 
 	// body: sent as JSON; form: a FormData sent as multipart (the browser sets its Content-Type)
 	async function get(path, params = {}, { method = "GET", body, form } = {}) {
@@ -61,8 +68,8 @@ window.PlantHistory = (function () {
 			} catch {
 				/* no JSON error body */
 			}
-			if (res.status === 413) throw new ApiError(`the photo is too large for the server (HTTP 413${detail}).`);
-			throw new ApiError(`The API answered with an error (HTTP ${res.status}${detail}).`);
+			if (res.status === 413) throw new ApiError(`the photo is too large for the server (HTTP 413${detail}).`, 413);
+			throw new ApiError(`The API answered with an error (HTTP ${res.status}${detail}).`, res.status);
 		}
 		try {
 			return await res.json();
@@ -101,6 +108,9 @@ window.PlantHistory = (function () {
 					recommendations: Array.isArray(r.recommendations) ? r.recommendations : r.recommendations ?? null,
 				},
 			}),
+		// ML test data (simulation page): empty the sensor table / add readings with their own timestamps
+		clearReadings: () => get("/api/readings", {}, { method: "DELETE" }),
+		addReadings: (readings) => get("/api/readings/bulk", {}, { method: "POST", body: { readings } }),
 		// Uploads the photo for a saved scan
 		uploadScanImage: (id, blob, filename = "scan.jpg") => {
 			const form = new FormData();
