@@ -61,11 +61,23 @@
     // Same shape as fetchSample(), from the database and the model
     async function fetchLive() {
         log(`Loading the last ${FETCH_HOURS} h of readings from the database (${PlantHistory.host})…`);
-        const [model, readings] = await Promise.all([PlantForecast.loadModel(), fetchReadings(FETCH_HOURS)]);
+        const [model, readings, rainNow] = await Promise.all([
+            PlantForecast.loadModel(),
+            fetchReadings(FETCH_HOURS),
+            // The server's current precipitation from Google Weather, even while the ESP32 isn't sending
+            PlantHistory.sensor().then((s) => PlantHistory.num(s && s.precipitation), () => null),
+        ]);
         if (!readings.length) throw new Error(`The database has no readings from the last ${FETCH_HOURS} hours. Is the ESP32 sending?`);
         const span = Math.round((readings[readings.length - 1].t - readings[0].t) / 60000);
         log(`Loaded ${readings.length} readings covering ${formatMinutes(span)}.`, "log-ok");
-        // No rain data yet (the weather feed hasn't filled it in): count it as no rain, like the training data's dry days
+        // Readings saved before the weather feed worked have no rain value: the newest step takes Google's current value
+        if (rainNow != null) {
+            const newest = readings[readings.length - 1].t;
+            const recent = readings.filter((r) => r.precipitation == null && newest - r.t < model.step_minutes * 60000);
+            recent.forEach((r) => (r.precipitation = rainNow));
+            log(`Current precipitation from Google Weather: ${rainNow} mm${recent.length ? " (used for the newest readings)" : ""}.`, "log-ok");
+        }
+        // The rest count as no rain, like the training data's dry days
         const noRain = readings.filter((r) => r.precipitation == null).length;
         const hasRain = noRain < readings.length;
         if (noRain) {
