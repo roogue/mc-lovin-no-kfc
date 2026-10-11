@@ -1106,8 +1106,8 @@ svg {
   display: none;
 }
 
-/* Mobile-only strip mirroring the 4 stat cards onto the plant card itself; see @media (max-width: 720px) */
-.plant-readings {
+/* Mobile-only at-a-glance readings strip, between the status banner and the plant card; see @media (max-width: 720px) */
+.quick-readings {
   display: none;
 }
 
@@ -2247,7 +2247,7 @@ svg {
     align-items: stretch;
   }
 
-  /* ----- Stat cards: now folded into the plant card below, see .plant-readings ----- */
+  /* ----- Stat cards: now live in the quick-readings strip, see .quick-readings ----- */
   .cards {
     display: none;
   }
@@ -2256,27 +2256,28 @@ svg {
     gap: 6px;
   }
 
-  /* ----- Readings mirrored onto the plant card ----- */
-  .plant-readings {
-    position: absolute;
-    top: 56px;
-    left: 12px;
-    right: 12px;
+  /* ----- Quick readings: tiny, always-visible, glanceable pills, filling the full width ----- */
+  .quick-readings {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px 12px;
-    padding: 8px 12px;
-    border-radius: 14px;
+    gap: 8px;
+    margin-bottom: 16px;
   }
 
-  .reading {
-    flex: 1 1 calc(50% - 6px);
-    font-size: 13px;
+  .quick-readings .reading {
+    flex: 1;
+    justify-content: center;
+    gap: 4px;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg);
+    font-size: 12px;
     font-weight: 600;
   }
 
-  #reading-weather {
-    flex-basis: 100%;
+  .quick-readings .reading svg {
+    width: 13px;
+    height: 13px;
   }
 
   /* ----- Chart: fewer gridlines, bigger labels, thicker line ----- */
