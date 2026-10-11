@@ -176,24 +176,33 @@
 
 			<!-- Mobile only: always-visible at-a-glance readings, small and non-obstructive (see style.css @media max-width:720px) -->
 			<div class="quick-readings" id="quick-readings" aria-label="Current readings">
-				<span class="reading" id="reading-temp">
+				<span class="reading temperature" id="reading-temp">
 					<svg viewBox="0 0 24 24" aria-hidden="true">
 						<path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z" />
 					</svg>
-					<strong id="temp-chip-value">30°C</strong>
+					<span class="reading-text">
+						<span class="reading-label">Temp</span>
+						<strong id="temp-chip-value">30°C</strong>
+					</span>
 				</span>
-				<span class="reading" id="reading-humidity">
+				<span class="reading humidity" id="reading-humidity">
 					<svg viewBox="0 0 24 24" aria-hidden="true">
 						<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z" />
 					</svg>
-					<strong id="humidity-chip-value">40%</strong>
+					<span class="reading-text">
+						<span class="reading-label">Humidity</span>
+						<strong id="humidity-chip-value">40%</strong>
+					</span>
 				</span>
-				<span class="reading" id="reading-precip">
+				<span class="reading precipitation" id="reading-precip">
 					<svg viewBox="0 0 24 24" aria-hidden="true">
 						<path d="M7 15a4 4 0 0 1-.5-8A5.5 5.5 0 0 1 17 8a3.5 3.5 0 0 1 0 7z" />
 						<path d="M8 18l-1 2M12 18l-1 2M16 18l-1 2" />
 					</svg>
-					<strong id="precip-chip-value">12%</strong>
+					<span class="reading-text">
+						<span class="reading-label">Precip.</span>
+						<strong id="precip-chip-value">12%</strong>
+					</span>
 				</span>
 			</div>
 

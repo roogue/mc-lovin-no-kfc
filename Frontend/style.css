@@ -2256,7 +2256,7 @@ svg {
     gap: 6px;
   }
 
-  /* ----- Quick readings: tiny, always-visible, glanceable pills, filling the full width ----- */
+  /* ----- Quick readings: big, always-visible, color-coded, filling the full width ----- */
   .quick-readings {
     display: flex;
     gap: 8px;
@@ -2266,18 +2266,43 @@ svg {
   .quick-readings .reading {
     flex: 1;
     justify-content: center;
-    gap: 4px;
-    padding: 7px 10px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--bg);
-    font-size: 12px;
-    font-weight: 600;
+    gap: 8px;
+    padding: 14px 10px;
+    border-radius: 18px;
+    color: #FFFFFF;
+    box-shadow: var(--shadow);
   }
 
+  .quick-readings .reading.temperature { background: linear-gradient(135deg, #FF9E9F 0%, #A3B4FF 100%); }
+  .quick-readings .reading.humidity { background: linear-gradient(135deg, #4CD179 0%, #2E9E57 100%); }
+  .quick-readings .reading.precipitation { background: linear-gradient(135deg, #6FD1FF 0%, #3C9FE0 100%); }
+
   .quick-readings .reading svg {
-    width: 13px;
-    height: 13px;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+  }
+
+  .quick-readings .reading-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .quick-readings .reading-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    opacity: 0.9;
+    white-space: nowrap;
+  }
+
+  .quick-readings .reading strong {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.1;
   }
 
   /* ----- Chart: fewer gridlines, bigger labels, thicker line ----- */
