@@ -1,6 +1,9 @@
 // History from the Plant Check API for the history pages, and saving photo scans (window.PlantHistory).
 //   GET /api/history?hours=N               → { hours, bucket_seconds, points: [{ t, temperature, humidity, pressure, precipitation, samples }] }
 //   GET /api/readings?hours=N&limit&offset → { total, limit, offset, readings: [{ id, recorded_at, temperature, humidity, pressure, precipitation }] }
+//   GET /api/predict                        → { ready: true, history: [{ minutes_ago, temperature, humidity, pressure, precipitation }],
+//                                                prediction: { temperature, humidity, precipitation, stress_probability, horizon_minutes, stress_window_minutes } }
+//                                              or { ready: false, needed_minutes, have_minutes } while there isn't enough history yet
 //   GET /api/disease?limit=N               → { scans: [{ id, scanned_at, status, issue, confidence, health_percentage, description, recommendations, image_url }] }
 //   POST /api/disease                      ← { status, issue, confidence, health_percentage, description, recommendations } → { ok, id }
 //   POST /api/disease/<id>/image           ← multipart form, field "image" (JPEG / PNG / WebP, max 10 MB) → { ok, id, image_url, bytes }
@@ -95,6 +98,7 @@ window.PlantHistory = (function () {
 		host: BASE.replace(/^https?:\/\//, ""),
 		history: (hours) => get("/api/history", { hours }),
 		readings: (hours, limit, offset) => get("/api/readings", { hours, limit, offset }),
+		predict: () => get("/api/predict"),
 		disease: (limit = 50) => get("/api/disease", { limit }),
 		// Saves one photo-scan result (only the fields the API stores)
 		saveScan: (r) =>

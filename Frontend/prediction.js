@@ -1,5 +1,7 @@
-// Prediction page. The database is down, so it reads data/prediction.json: a 6-hour history and the model's
-// prediction for each scenario. The simulation page picks the scenario. Swap fetchPrediction() for the real API later.
+// Prediction page. Live mode calls GET /api/predict on the Plant Check API (Backend/app.py), which runs
+// Prediction-Training/predict.py on the saved sensor_readings. Sample mode (no API configured, or the
+// simulation page's remote set to "sample") reads data/prediction.json instead: a 6-hour history and the
+// model's prediction for each scenario, picked on the simulation page.
 
 (function () {
     "use strict";
@@ -15,14 +17,28 @@
         }
     }
 
-    // Returns { name, description, history, prediction: { temperature, humidity, precipitation, stress_probability } }
-    async function fetchPrediction() {
+    async function fetchSample() {
         const res = await fetch("data/prediction.json", { cache: "no-store" });
         if (!res.ok) throw new Error(`Couldn't load prediction.json (HTTP ${res.status}).`);
         const data = await res.json();
         const s = data.scenarios && data.scenarios[scenarioId()];
         if (!s) throw new Error("The selected scenario isn't in prediction.json.");
         return s;
+    }
+
+    async function fetchLive() {
+        const data = await PlantHistory.predict();
+        if (!data.ready) {
+            const have = Math.round((data.have_minutes || 0) / 60 * 10) / 10;
+            const need = Math.round((data.needed_minutes || 0) / 60 * 10) / 10;
+            throw new Error(`Not enough sensor history yet: ${have} h saved, ${need} h needed.`);
+        }
+        return { name: "Live", description: "From the last readings in the database.", history: data.history, prediction: data.prediction };
+    }
+
+    // Returns { name, description, history, prediction: { temperature, humidity, precipitation, stress_probability } }
+    async function fetchPrediction() {
+        return window.PlantHistory && PlantHistory.isLive() ? fetchLive() : fetchSample();
     }
 
     function showError(msg) {
@@ -303,9 +319,10 @@
         $("pred-console").replaceChildren();
         tiles().forEach((t) => t.classList.add("is-loading"));
         const pause = (ms) => wait(reduceMotion ? 0 : ms);
+        const live = !!(window.PlantHistory && PlantHistory.isLive());
         try {
-            log(`Scenario: ${scenarioId()}`, "log-dim");
-            log("Loading data/prediction.json…");
+            log(live ? "Source: live database" : `Scenario: ${scenarioId()}`, "log-dim");
+            log(live ? "Loading readings from the API…" : "Loading data/prediction.json…");
             await pause(500);
             const s = await fetchPrediction();
             const h = s.history;
