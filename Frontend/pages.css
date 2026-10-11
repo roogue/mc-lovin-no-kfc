@@ -175,30 +175,6 @@
   opacity: 0.35;
 }
 
-.chart-tip {
-  position: absolute;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: #111827;
-  color: #FFFFFF;
-  font-size: 12px;
-  white-space: nowrap;
-  pointer-events: none;
-  transform: translate(-50%, calc(-100% - 12px));
-}
-
-.chart-tip[hidden] {
-  display: none;
-}
-
-.chart-tip span {
-  color: #D1D5DB;
-}
-
 .legend {
   display: flex;
   gap: 14px;

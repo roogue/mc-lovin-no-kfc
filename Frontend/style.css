@@ -1275,6 +1275,7 @@ svg {
 }
 
 .chart-card {
+  position: relative;
   display: flex;
   flex-direction: column;
 }
@@ -1355,6 +1356,37 @@ svg {
   font-size: 13px;
   font-weight: 600;
   fill: var(--text);
+}
+
+.chart .crosshair {
+  stroke: #C7CBD1;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+/* Hover tooltip for charts (Overview temperature, Monitoring History) */
+.chart-tip {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #111827;
+  color: #FFFFFF;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 12px));
+}
+
+.chart-tip[hidden] {
+  display: none;
+}
+
+.chart-tip span {
+  color: #D1D5DB;
 }
 
 /* ----- Latest updates table ----- */
