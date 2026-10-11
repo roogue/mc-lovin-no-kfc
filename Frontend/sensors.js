@@ -8,9 +8,11 @@
  * Data source (chosen on the simulation page, the remote control; remembered in localStorage):
  *   'live'       – polls GET /api/sensor (and GET /api/relay) on the backend every API_CONFIG.pollSeconds.
  *                  Uses the API's own "connected" flag; no reading / unreachable server → cards go empty.
- *   'sample'     – the demo feed (or SENSOR_CONFIG.url); nothing from the backend or the simulation.
- *   'simulation' – same as live, but answered by the simulated backend on simulation.html (see api.js);
- *                  never the network.
+ *   'sample'     – while the simulation page (simulation.html) is open, same as live but answered by its
+ *                  simulated ESP32 and backend (see api.js), never the network: it looks like a connected ESP32.
+ *                  Without that page, the demo feed (or SENSOR_CONFIG.url) made in this tab.
+ *
+ * PlantSensors.usesBackend: true when a backend (real, or the simulated one) owns the relays.
  *
  * Fires 'sensor:update' with { temperature, humidity, pressure?, demo },
  * 'sensor:lost' when readings stop, 'sensor:source' with { mode, state, reason } whenever the source or
@@ -93,8 +95,8 @@
 
   /* ---------- Data source + connection ---------- */
   const SOURCE_KEY = 'plantcheck:data-source';
-  // Chosen on the simulation page (the remote control): real-time ('live') or sample (the demo feed, made in this tab).
-  // Without an API configured it's always sample.
+  // Chosen on the simulation page (the remote control): real-time ('live') or sample (the simulation page's
+  // simulated ESP32, or the demo feed made in this tab when that page isn't open). Without an API configured it's always sample.
   const MODES = ['live', 'sample'];
   const API_CFG = window.API_CONFIG || {};
   const DEFAULT_MODE = !(window.PlantAPI && PlantAPI.configured)
@@ -112,7 +114,8 @@
 
   let mode = readMode();
   let modeSince = Date.now();
-  const serverMode = () => mode === 'live' || mode === 'simulation';
+  // Sample mode asks the simulation page too; when it doesn't answer, the demo feed takes over
+  const serverMode = () => mode === 'live' || mode === 'sample';
   let state = null;
   let reason = null;
 
@@ -129,7 +132,7 @@
 
   const LOST_TEXT = {
     live: { 'no-data': 'ESP32 not connected', unreachable: "Can't reach the server" },
-    simulation: { 'no-data': 'Simulated ESP32 not connected', unreachable: 'Simulation not running' },
+    sample: { 'no-data': 'Simulated ESP32 not connected' },
   };
 
   function setState(next, why = null) {
@@ -163,6 +166,14 @@
     }
 
     if (sensorRes.status !== 'fulfilled' || !sensorRes.value.ok) {
+      if (mode === 'sample') {
+        // The simulation page isn't open: back to the demo feed
+        if (state !== 'sample') {
+          setState('sample');
+          tick();
+        }
+        return;
+      }
       failures += 1;
       if (failures >= 2) setState('disconnected', 'unreachable');
       return;
@@ -186,8 +197,8 @@
       tick();
     } else {
       setState('connecting');
-      pollLive();
     }
+    pollLive();
   }
 
   function setMode(next, { save = true } = {}) {
@@ -207,9 +218,9 @@
     if (e.key === SOURCE_KEY) setMode(e.newValue, { save: false });
   });
 
-  // Sample mode: the demo feed (or SENSOR_CONFIG.url) every few seconds
+  // Sample mode without the simulation page: the demo feed (or SENSOR_CONFIG.url) every few seconds
   const tick = () => {
-    if (mode !== 'sample') return;
+    if (mode !== 'sample' || state !== 'sample') return;
     if (SOURCE_URL) poll();
     else push(demoReading());
   };
@@ -226,5 +237,6 @@
     get mode() { return mode; },
     get state() { return state; },
     get reason() { return reason; },
+    get usesBackend() { return mode === 'live' || (mode === 'sample' && state !== 'sample'); },
   };
 })();

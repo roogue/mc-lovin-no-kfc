@@ -4,8 +4,8 @@
 //   GET  /api/relay  → { fan, valve, valve_remaining }
 //   POST /api/relay  → body { fan } / { valve: true, seconds } / { valve: false }; no key needed
 // Successful relay commands fire 'api:relay' with the new state so the controls can resync.
-// When the data source is "simulation", the same calls go to the simulated backend on the simulation page
-// (simulation.html) over a BroadcastChannel instead of the network.
+// When the data source is "sample", the same calls go to the simulated backend on the simulation page
+// (simulation.html) over a BroadcastChannel instead of the network (they fail fast when that page isn't open).
 
 window.PlantAPI = (function () {
 	"use strict";
@@ -23,7 +23,7 @@ window.PlantAPI = (function () {
 	}
 
 	/* ---------- simulation transport (BroadcastChannel to simulation.html) ---------- */
-	const SIM_TIMEOUT_MS = 6000; // same patience as a network request
+	const SIM_TIMEOUT_MS = 1500; // the simulation page answers at once; no answer means it isn't open
 	const simChannel = "BroadcastChannel" in window ? new BroadcastChannel("plantcheck-sim") : null;
 	const simPending = new Map();
 	if (simChannel) {
@@ -34,7 +34,7 @@ window.PlantAPI = (function () {
 			}
 		});
 	}
-	const viaSimulation = () => !!(window.PlantSensors && PlantSensors.mode === "simulation");
+	const viaSimulation = () => !!(window.PlantSensors && PlantSensors.mode === "sample");
 
 	function simRequest(path, { method = "GET", body } = {}) {
 		return new Promise((resolve, reject) => {

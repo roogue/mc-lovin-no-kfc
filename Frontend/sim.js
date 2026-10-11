@@ -3,9 +3,8 @@
 //   --POST /data, GET /status--> Backend (port of Backend/app.py) <--GET /api/sensor, /api/relay, POST /api/relay-- dashboard
 // On real-time data the panels and the serial monitor show the real hardware instead: this page polls the real
 // API (GET /api/sensor and /api/relay, read-only, never a command) and plays each new reading and relay change
-// through the same path, while the ESP32 is connected. With sample data, or no ESP32, the panels stay idle.
-// The simulated hardware and backend only run on the "simulation" data source, which the dashboard reaches over
-// a BroadcastChannel (see api.js).
+// through the same path, while the ESP32 is connected. On sample data the simulated hardware and backend run on
+// their own and the dashboard reads them over a BroadcastChannel (see api.js), so it looks like a connected ESP32.
 
 (function () {
 	"use strict";
@@ -155,7 +154,7 @@
 
 	// loop(): every txInterval, read the BME280 and print one JSON line on serial
 	function esp32Tick() {
-		if (!running || !simulating()) return;
+		if (!running || !simActive()) return;
 		stepEnvironment();
 		const e = esp32.env;
 		const f = (v) => (esp32.sensorOk ? v.toFixed(2) : "nan"); // an unplugged BME280 reads NaN
@@ -303,7 +302,7 @@
 		},
 
 		poll() {
-			if (!running || !simulating()) return;
+			if (!running || !simActive()) return;
 			if (!esp32.attached) {
 				serialPrint("error", "SERVER serial error: could not open port COM3 (ESP32 unplugged)");
 				return;
@@ -414,18 +413,18 @@
 		}
 	})();
 
-	// The simulated hardware stands in for the real one, so it follows it: it runs while the dashboard is on
-	// real-time data and the ESP32 is connected. Sample data, no dashboard open, or an ESP32 that stopped sending
-	// leaves it idle, with every reading here empty. Pause stops it too.
+	// The simulated hardware always runs on sample data: it's what the dashboard reads then, as if the ESP32 were
+	// connected. On real-time data it follows the real ESP32: it runs while the dashboard is open and the ESP32 is
+	// connected, and stays idle otherwise, with every reading here empty. Pause stops it too.
 	let wasActive = null;
 
 	// Why the simulated hardware is idle (null while it runs), from what the dashboard reports about its own source
 	function idleReason() {
-		if (dataSource === "sample") return "sample";
+		if (dataSource === "sample") return null;
 		if (!dashboardConnected()) return "no-dashboard";
 		const s = dashboardSource;
 		if (!s) return "unknown";
-		if (s.mode === "sample") return "sample";
+		if (s.mode === "sample") return null;
 		if (s.mode === "live" && s.state === "connected") return null;
 		if (s.state === "disconnected") return s.reason === "unreachable" ? "unreachable" : "no-esp32";
 		return "connecting";
@@ -447,7 +446,6 @@
 
 	// Why the simulated hardware is idle, for the note under the header and for the serial log
 	const IDLE_NOTE = {
-		sample: "The dashboard shows sample data, made up in its own tab (it keeps going when this page is closed). The simulated hardware below isn't used and its readings stay empty.",
 		"no-dashboard": "Waiting for the dashboard: open it in another tab. The simulated hardware below runs with it while the ESP32 is connected.",
 		unreachable: "The dashboard can't reach the server, so it has no readings from the ESP32. The simulated hardware below is idle.",
 		"no-esp32": "The ESP32 isn't connected: the dashboard has no readings. The simulated hardware below starts as soon as it sends them.",
@@ -455,7 +453,6 @@
 		unknown: "Waiting for the dashboard to report its data source. The simulated hardware below is idle until it does.",
 	};
 	const IDLE_SERIAL = {
-		sample: "the dashboard is on sample data",
 		"no-dashboard": "the dashboard isn't open",
 		unreachable: "the dashboard can't reach the server",
 		"no-esp32": "the ESP32 isn't connected",
@@ -516,7 +513,7 @@
 		sourceButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.source === dataSource)));
 		$("source-note").textContent =
 			dataSource === "sample"
-				? "The dashboard shows sample readings made up in its own tab. They keep coming even when this page is closed, and the simulated hardware below stays idle."
+				? "The dashboard reads the simulated ESP32 below, as if it were connected: readings, fan and valve all go through this page. Close this page and the dashboard falls back to sample readings made up in its own tab."
 				: "The dashboard shows real-time readings from the ESP32 (the real API). The simulated hardware below runs with it while the ESP32 is connected; nothing here is ever sent to the real API.";
 	}
 
@@ -658,7 +655,7 @@
 	function renderFlow() {
 		const connected = dashboardConnected();
 		$("flow-server").textContent = !simActive() ? "Off" : espServer.mode === "mock" ? "Random relay mock" : "Polls /status every 3 s";
-		// The dashboard reads the real API (or its own sample feed), never this page's backend, so that wire stays quiet
+		// On sample data the dashboard reads this page's backend; on real-time data the real API, so that wire stays quiet
 		$("flow-dashboard").textContent = !connected ? "Not open" : `On ${SOURCE_NAMES[dataSource]}`;
 		const chip = $("dash-chip");
 		chip.classList.toggle("is-on", connected);

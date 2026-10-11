@@ -97,9 +97,10 @@
 				<div>
 					<h1>Simulation</h1>
 					<p>The whole hardware path in software: ESP32, ESP server and backend, with the same messages and
-						endpoints as the real ones. The simulated hardware runs while the dashboard is on real-time
-						data and the ESP32 is connected, and stays idle otherwise. The hardware simulation never talks
-						to the real API; only the ML test data below writes to the real database.</p>
+						endpoints as the real ones. On sample data the dashboard reads this simulated hardware, so it
+						looks just like a connected ESP32. On real-time data it runs while the real ESP32 is connected,
+						and stays idle otherwise. The hardware simulation never talks to the real API; only the ML test
+						data below writes to the real database.</p>
 				</div>
 				<div class="sim-head-actions">
 					<span class="dash-chip" id="dash-chip"><span class="dot"></span><span>Dashboard not

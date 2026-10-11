@@ -247,7 +247,7 @@
     }
 
     const toast = (msg) => (window.PlantToast ? PlantToast(msg, "error") : showError(msg));
-    const isServer = () => !!(window.PlantAPI && window.PlantSensors && ["live", "simulation"].includes(PlantSensors.mode));
+    const isServer = () => !!(window.PlantAPI && window.PlantSensors && PlantSensors.usesBackend);
 
     function renderDevices() {
         $("pred-fan").setAttribute("aria-checked", String(dev.fan));
