@@ -1,138 +1,145 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Plant Check — Simulation</title>
-		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<link
-			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-			rel="stylesheet" />
-		<link rel="stylesheet" href="style.css" />
-		<link rel="stylesheet" href="pages.css" />
-		<link rel="stylesheet" href="sim.css" />
-	</head>
-	<body>
-		<input
-			type="checkbox"
-			id="nav-toggle"
-			class="nav-toggle"
-			aria-label="Toggle sidebar" />
 
-		<div class="app">
-			<!-- ========== SIDEBAR ========== -->
-			<aside class="sidebar">
-				<div class="sidebar-header">
-					<a href="index.html" class="logo">
-						<svg class="logo-icon" viewBox="0 0 40 40" aria-hidden="true">
-							<path
-								d="M20 20 C 14 21, 6 18, 4 10 C 11 8, 18 12, 20 20 Z"
-								fill="#4CD179" />
-							<path
-								d="M20 20 C 26 21, 34 18, 36 10 C 29 8, 22 12, 20 20 Z"
-								fill="#7FDC9C" />
-							<line
-								x1="20"
-								y1="19"
-								x2="20"
-								y2="26"
-								stroke="#4CD179"
-								stroke-width="2" />
-							<rect x="10" y="25" width="20" height="4" rx="1" fill="#F48A5C" />
-							<path d="M12 30 H28 L26 37 H14 Z" fill="#F9A47D" />
-						</svg>
-						<span class="logo-text">Plant<br />Check</span>
-					</a>
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Plant Check — Simulation</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+		rel="stylesheet" />
+	<link rel="stylesheet" href="style.css" />
+	<link rel="stylesheet" href="pages.css" />
+	<link rel="stylesheet" href="sim.css" />
+</head>
 
-					<label
-						for="nav-toggle"
-						class="toggle-btn"
-						title="Collapse / expand sidebar">
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path d="M15 6l-6 6 6 6" />
-						</svg>
-					</label>
+<body>
+	<input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Toggle sidebar" />
+
+	<div class="app">
+		<!-- ========== SIDEBAR ========== -->
+		<aside class="sidebar">
+			<div class="sidebar-header">
+				<a href="index.html" class="logo">
+					<svg class="logo-icon" viewBox="0 0 40 40" aria-hidden="true">
+						<path d="M20 20 C 14 21, 6 18, 4 10 C 11 8, 18 12, 20 20 Z" fill="#4CD179" />
+						<path d="M20 20 C 26 21, 34 18, 36 10 C 29 8, 22 12, 20 20 Z" fill="#7FDC9C" />
+						<line x1="20" y1="19" x2="20" y2="26" stroke="#4CD179" stroke-width="2" />
+						<rect x="10" y="25" width="20" height="4" rx="1" fill="#F48A5C" />
+						<path d="M12 30 H28 L26 37 H14 Z" fill="#F9A47D" />
+					</svg>
+					<span class="logo-text">Plant<br />Check</span>
+				</a>
+
+				<label for="nav-toggle" class="toggle-btn" title="Collapse / expand sidebar">
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<path d="M15 6l-6 6 6 6" />
+					</svg>
+				</label>
+			</div>
+
+			<nav class="nav">
+				<a href="index.html" class="nav-item" title="Overview">
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<rect x="3" y="3" width="7" height="7" rx="1.5" />
+						<rect x="14" y="3" width="7" height="7" rx="1.5" />
+						<rect x="3" y="14" width="7" height="7" rx="1.5" />
+						<rect x="14" y="14" width="7" height="7" rx="1.5" />
+					</svg>
+					<span class="nav-label">Overview</span>
+				</a>
+				<a href="disease.html" class="nav-item" title="Disease">
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<path d="M5 19c0-8 6-14 15-14 0 9-6 15-14 15" />
+						<path d="M5 19l7-7" />
+						<circle cx="14" cy="10" r="1" />
+					</svg>
+					<span class="nav-label">Disease</span>
+				</a>
+				<a href="monitoring-history.html" class="nav-item" data-short="History" title="Monitoring History">
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<path d="M3 12a9 9 0 1 0 3-6.7" />
+						<path d="M3 4v4h4" />
+						<path d="M12 7v5l3 2" />
+					</svg>
+					<span class="nav-label">Monitoring History</span>
+				</a>
+				<a href="report.html" class="nav-item" title="Report">
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+						<path d="M14 3v6h6" />
+						<path d="M8 13h8M8 17h5" />
+					</svg>
+					<span class="nav-label">Report</span>
+				</a>
+				<a href="prediction.html" class="nav-item" title="Prediction">
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<path d="M3 17l6-6 4 4 8-8" />
+						<path d="M15 7h6v6" />
+					</svg>
+					<span class="nav-label">Prediction</span>
+				</a>
+				<a href="simulation.html" class="nav-item active" title="Simulation">
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<rect x="6" y="6" width="12" height="12" rx="2" />
+						<path d="M10 10h4v4h-4z" />
+						<path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" />
+					</svg>
+					<span class="nav-label">Simulation</span>
+				</a>
+			</nav>
+		</aside>
+
+		<!-- ========== MAIN CONTENT ========== -->
+		<main class="main">
+			<div class="page-head">
+				<div>
+					<h1>Simulation</h1>
+					<p>The whole hardware path in software: ESP32, ESP server and backend, with the same messages and
+						endpoints as the real ones. The hardware simulation never talks to the real API; only the ML
+						test data below writes to the real database.</p>
 				</div>
-
-				<nav class="nav">
-					<a href="index.html" class="nav-item" title="Overview">
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<rect x="3" y="3" width="7" height="7" rx="1.5" />
-							<rect x="14" y="3" width="7" height="7" rx="1.5" />
-							<rect x="3" y="14" width="7" height="7" rx="1.5" />
-							<rect x="14" y="14" width="7" height="7" rx="1.5" />
-						</svg>
-						<span class="nav-label">Overview</span>
-					</a>
-					<a href="disease.html" class="nav-item" title="Disease">
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path d="M5 19c0-8 6-14 15-14 0 9-6 15-14 15" />
-							<path d="M5 19l7-7" />
-							<circle cx="14" cy="10" r="1" />
-						</svg>
-						<span class="nav-label">Disease</span>
-					</a>
-					<a href="monitoring-history.html" class="nav-item" data-short="History" title="Monitoring History">
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path d="M3 12a9 9 0 1 0 3-6.7" />
-							<path d="M3 4v4h4" />
-							<path d="M12 7v5l3 2" />
-						</svg>
-						<span class="nav-label">Monitoring History</span>
-					</a>
-					<a href="report.html" class="nav-item" title="Report">
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path
-								d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
-							<path d="M14 3v6h6" />
-							<path d="M8 13h8M8 17h5" />
-						</svg>
-						<span class="nav-label">Report</span>
-					</a>
-					<a href="simulation.html" class="nav-item active" title="Simulation">
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<rect x="6" y="6" width="12" height="12" rx="2" />
-							<path d="M10 10h4v4h-4z" />
-							<path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" />
-						</svg>
-						<span class="nav-label">Simulation</span>
-					</a>
-				</nav>
-			</aside>
-
-			<!-- ========== MAIN CONTENT ========== -->
-			<main class="main">
-				<div class="page-head">
-					<div>
-						<h1>Simulation</h1>
-						<p>The whole hardware path in software: ESP32, ESP server and backend, with the same messages and endpoints as the real ones. The hardware simulation never talks to the real API; only the ML test data below writes to the real database.</p>
-					</div>
-					<div class="sim-head-actions">
-						<span class="dash-chip" id="dash-chip"><span class="dot"></span><span>Dashboard not open</span></span>
-						<a class="sim-btn" href="index.html" target="_blank" rel="noopener">Open dashboard ↗</a>
-						<button type="button" class="sim-btn primary" id="sim-run" aria-pressed="false">Pause</button>
-					</div>
+				<div class="sim-head-actions">
+					<span class="dash-chip" id="dash-chip"><span class="dot"></span><span>Dashboard not
+							open</span></span>
+					<a class="sim-btn" href="index.html" target="_blank" rel="noopener">Open dashboard ↗</a>
+					<button type="button" class="sim-btn primary" id="sim-run" aria-pressed="false">Pause</button>
 				</div>
+			</div>
 
-				<div class="sim-idle-note" id="sim-idle-note" hidden>
-					<p><strong>Hardware simulation off.</strong> <span id="sim-idle-text">The dashboard shows real-time data from the ESP32, so the simulated hardware below isn't used and its readings stay empty.</span></p>
-				</div>
-
-				<p class="sim-warning" id="sim-warning" hidden>
-					Run <code>npm run dev</code> and open this page and the dashboard from localhost. Pages opened straight from disk can't talk to each other.
+			<div class="sim-idle-note" id="sim-idle-note" hidden>
+				<p><strong>Hardware simulation off.</strong> <span id="sim-idle-text">The dashboard shows real-time data
+						from the ESP32, so the simulated hardware below isn't used and its readings stay empty.</span>
 				</p>
+			</div>
 
-				<section class="sim-top">
-					<div class="sim-stack">
+			<p class="sim-warning" id="sim-warning" hidden>
+				Run <code>npm run dev</code> and open this page and the dashboard from localhost. Pages opened straight
+				from disk can't talk to each other.
+			</p>
+
+			<section class="sim-top">
+				<div class="sim-stack">
 					<article class="card panel sim-source">
 						<h2 class="panel-title">Dashboard data</h2>
 						<p class="chart-sub">Remote control: what the dashboard shows</p>
-						<div class="range-switch sim-source-switch" id="data-source" role="group" aria-label="Dashboard data">
+						<div class="range-switch sim-source-switch" id="data-source" role="group"
+							aria-label="Dashboard data">
 							<button type="button" data-source="live" aria-pressed="true">Real-time</button>
 							<button type="button" data-source="sample" aria-pressed="false">Sample</button>
 						</div>
 						<p class="sim-note" id="source-note"></p>
+					</article>
+
+					<article class="card panel sim-scenario">
+						<h2 class="panel-title">Prediction scenario</h2>
+						<p class="chart-sub">The 6-hour history the Prediction page reads (data/prediction.json)</p>
+						<div class="range-switch" id="pred-scenario" role="group" aria-label="Prediction scenario">
+							<button type="button" data-scenario="stable" aria-pressed="true">Stable</button>
+							<button type="button" data-scenario="rising" aria-pressed="false">Rising
+								temperature</button>
+						</div>
 					</article>
 
 					<article class="card panel sim-plant">
@@ -154,235 +161,245 @@
 						</label>
 						<p class="sim-note" id="sim-plant-note"></p>
 					</article>
-					</div>
+				</div>
 
-					<article class="card panel sim-flow-card">
-						<h2 class="panel-title">Data flow</h2>
-						<p class="chart-sub">Each dot is a message on its way</p>
-						<div class="flow" id="flow">
-							<div class="flow-node">
-								<span class="flow-icon" aria-hidden="true">
-									<svg viewBox="0 0 24 24"><path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z" /></svg>
-								</span>
-								<strong>Sensors</strong>
-								<small id="flow-sensors">BME280 · fan · valve</small>
-							</div>
-							<div class="flow-wire" id="wire-sensor"><span class="wire-label">I²C · GPIO</span></div>
-							<div class="flow-node">
-								<span class="flow-icon" aria-hidden="true">
-									<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" /><path d="M10 10h4v4h-4zM9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" /></svg>
-								</span>
-								<strong>ESP32</strong>
-								<small id="flow-esp32">Fan off · Valve closed</small>
-							</div>
-							<div class="flow-wire" id="wire-serial"><span class="wire-label">Serial</span></div>
-							<div class="flow-node">
-								<span class="flow-icon" aria-hidden="true">
-									<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>
-								</span>
-								<strong>ESP server</strong>
-								<small id="flow-server">Polls /status every 3 s</small>
-							</div>
-							<div class="flow-wire" id="wire-device"><span class="wire-label">POST /data<br />GET /status</span></div>
-							<div class="flow-node">
-								<span class="flow-icon" aria-hidden="true">
-									<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="6" rx="1.5" /><rect x="4" y="14" width="16" height="6" rx="1.5" /><path d="M8 7h.01M8 17h.01" /></svg>
-								</span>
-								<strong>Backend</strong>
-								<small id="flow-backend">Fan off · valve off</small>
-							</div>
-							<div class="flow-wire" id="wire-dash"><span class="wire-label">/api/sensor<br />/api/relay</span></div>
-							<div class="flow-node">
-								<span class="flow-icon" aria-hidden="true">
-									<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
-								</span>
-								<strong>Dashboard</strong>
-								<small id="flow-dashboard">Not open</small>
-							</div>
+				<article class="card panel sim-flow-card">
+					<h2 class="panel-title">Data flow</h2>
+					<p class="chart-sub">Each dot is a message on its way</p>
+					<div class="flow" id="flow">
+						<div class="flow-node">
+							<span class="flow-icon" aria-hidden="true">
+								<svg viewBox="0 0 24 24">
+									<path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z" />
+								</svg>
+							</span>
+							<strong>Sensors</strong>
+							<small id="flow-sensors">BME280 · fan · valve</small>
 						</div>
-						<ul class="legend flow-legend" aria-label="Legend">
-							<li><span class="swatch packet-data"></span>Readings</li>
-							<li><span class="swatch packet-status"></span>Status requests</li>
-							<li><span class="swatch packet-command"></span>Relay commands</li>
-						</ul>
-					</article>
-				</section>
+						<div class="flow-wire" id="wire-sensor"><span class="wire-label">I²C · GPIO</span></div>
+						<div class="flow-node">
+							<span class="flow-icon" aria-hidden="true">
+								<svg viewBox="0 0 24 24">
+									<rect x="6" y="6" width="12" height="12" rx="2" />
+									<path d="M10 10h4v4h-4zM9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" />
+								</svg>
+							</span>
+							<strong>ESP32</strong>
+							<small id="flow-esp32">Fan off · Valve closed</small>
+						</div>
+						<div class="flow-wire" id="wire-serial"><span class="wire-label">Serial</span></div>
+						<div class="flow-node">
+							<span class="flow-icon" aria-hidden="true">
+								<svg viewBox="0 0 24 24">
+									<rect x="3" y="4" width="18" height="12" rx="2" />
+									<path d="M8 20h8M12 16v4" />
+								</svg>
+							</span>
+							<strong>ESP server</strong>
+							<small id="flow-server">Polls /status every 3 s</small>
+						</div>
+						<div class="flow-wire" id="wire-device"><span class="wire-label">POST /data<br />GET
+								/status</span></div>
+						<div class="flow-node">
+							<span class="flow-icon" aria-hidden="true">
+								<svg viewBox="0 0 24 24">
+									<rect x="4" y="4" width="16" height="6" rx="1.5" />
+									<rect x="4" y="14" width="16" height="6" rx="1.5" />
+									<path d="M8 7h.01M8 17h.01" />
+								</svg>
+							</span>
+							<strong>Backend</strong>
+							<small id="flow-backend">Fan off · valve off</small>
+						</div>
+						<div class="flow-wire" id="wire-dash"><span
+								class="wire-label">/api/sensor<br />/api/relay</span></div>
+						<div class="flow-node">
+							<span class="flow-icon" aria-hidden="true">
+								<svg viewBox="0 0 24 24">
+									<rect x="3" y="3" width="7" height="7" rx="1.5" />
+									<rect x="14" y="3" width="7" height="7" rx="1.5" />
+									<rect x="3" y="14" width="7" height="7" rx="1.5" />
+									<rect x="14" y="14" width="7" height="7" rx="1.5" />
+								</svg>
+							</span>
+							<strong>Dashboard</strong>
+							<small id="flow-dashboard">Not open</small>
+						</div>
+					</div>
+					<ul class="legend flow-legend" aria-label="Legend">
+						<li><span class="swatch packet-data"></span>Readings</li>
+						<li><span class="swatch packet-status"></span>Status requests</li>
+						<li><span class="swatch packet-command"></span>Relay commands</li>
+					</ul>
+				</article>
+			</section>
 
-				<!-- ML test data: known 6-hour histories in the real database (see ml-scenarios.js) -->
-				<section class="card panel ml-card" id="ml-card" aria-labelledby="ml-title">
+			<section class="sim-grid">
+				<article class="card panel">
 					<div class="sim-card-head">
 						<div>
-							<h2 class="panel-title" id="ml-title">ML test data</h2>
-							<p class="chart-sub">
-								Writes a known 6-hour history into the <strong>real</strong> database, one reading every 5 minutes up to now, so you can check what the
-								prediction model makes of it. The model reads temperature, humidity, pressure and precipitation from the last 6 hours.
-							</p>
+							<h2 class="panel-title">ESP32</h2>
+							<p class="chart-sub">esp32.ino · sends a reading every second</p>
 						</div>
-						<button type="button" class="sim-btn ml-fresh" id="ml-fresh">Fresh: clear sensor table</button>
+						<span class="sim-chip" id="bme-chip">BME280 OK</span>
 					</div>
-					<p class="sim-note ml-tip">Press Fresh first so old readings don't mix in, and stop the ESP server while testing, or its live readings land in the same window.</p>
-					<p class="ml-status" id="ml-status" aria-live="polite" hidden></p>
-					<div class="ml-grid" id="ml-grid"></div>
-				</section>
 
-				<section class="sim-grid">
-					<article class="card panel">
-						<div class="sim-card-head">
-							<div>
-								<h2 class="panel-title">ESP32</h2>
-								<p class="chart-sub">esp32.ino · sends a reading every second</p>
-							</div>
-							<span class="sim-chip" id="bme-chip">BME280 OK</span>
+					<div class="sim-readings">
+						<div class="tile"><span>Temperature</span><strong id="esp-temp">–</strong><small>BME280</small>
 						</div>
-
-						<div class="sim-readings">
-							<div class="tile"><span>Temperature</span><strong id="esp-temp">–</strong><small>BME280</small></div>
-							<div class="tile"><span>Humidity</span><strong id="esp-humidity">–</strong><small>BME280</small></div>
-							<div class="tile"><span>Pressure</span><strong id="esp-pressure">–</strong><small>hPa</small></div>
+						<div class="tile"><span>Humidity</span><strong id="esp-humidity">–</strong><small>BME280</small>
 						</div>
-
-						<div class="relays">
-							<div class="relay" id="relay-fan">
-								<span class="lamp" aria-hidden="true"></span>
-								<div><strong>Fan relay</strong><small>GPIO 10</small></div>
-								<span class="relay-state">OFF</span>
-							</div>
-							<div class="relay" id="relay-valve">
-								<span class="lamp" aria-hidden="true"></span>
-								<div><strong>Valve relay</strong><small>GPIO 11</small></div>
-								<span class="relay-state">OFF</span>
-							</div>
+						<div class="tile"><span>Pressure</span><strong id="esp-pressure">–</strong><small>hPa</small>
 						</div>
+					</div>
 
-						<div class="sim-controls">
-							<div class="sim-row">
-								<span class="sim-label">Sensor readings</span>
-								<div class="range-switch" id="esp-mode" role="group" aria-label="Sensor readings">
-									<button type="button" data-mode="drift" aria-pressed="true">Natural drift</button>
-									<button type="button" data-mode="manual" aria-pressed="false">Manual</button>
-								</div>
-							</div>
-							<label class="slider-row">
-								<span>Temperature</span>
-								<input type="range" id="sl-temp" min="15" max="45" step="0.1" />
-								<output id="sl-temp-value">–</output><span class="unit">°C</span>
-							</label>
-							<label class="slider-row">
-								<span>Humidity</span>
-								<input type="range" id="sl-humidity" min="0" max="100" step="1" />
-								<output id="sl-humidity-value">–</output><span class="unit">%</span>
-							</label>
-							<label class="slider-row">
-								<span>Pressure</span>
-								<input type="range" id="sl-pressure" min="980" max="1040" step="0.1" />
-								<output id="sl-pressure-value">–</output><span class="unit">hPa</span>
-							</label>
-							<div class="sim-row">
-								<span class="sim-label">BME280 connected</span>
-								<button type="button" class="switch" id="bme-toggle" role="switch" aria-checked="true" aria-label="BME280 connected"><span class="switch-thumb"></span></button>
-							</div>
-							<div class="sim-row">
-								<span class="sim-label">USB serial connected</span>
-								<button type="button" class="switch" id="usb-toggle" role="switch" aria-checked="true" aria-label="USB serial connected"><span class="switch-thumb"></span></button>
-							</div>
+					<div class="relays">
+						<div class="relay" id="relay-fan">
+							<span class="lamp" aria-hidden="true"></span>
+							<div><strong>Fan relay</strong><small>GPIO 10</small></div>
+							<span class="relay-state">OFF</span>
 						</div>
-
-						<p class="sim-line-label">Uptime <strong id="esp-uptime">–</strong> · last line sent on serial</p>
-						<code class="sim-line" id="esp-line"></code>
-					</article>
-
-					<article class="card panel">
-						<div class="sim-card-head">
-							<div>
-								<h2 class="panel-title">ESP server</h2>
-								<p class="chart-sub">server.py · bridges the ESP32's serial port and the backend</p>
-							</div>
+						<div class="relay" id="relay-valve">
+							<span class="lamp" aria-hidden="true"></span>
+							<div><strong>Valve relay</strong><small>GPIO 11</small></div>
+							<span class="relay-state">OFF</span>
 						</div>
+					</div>
 
+					<div class="sim-controls">
 						<div class="sim-row">
-							<span class="sim-label">Relay commands</span>
-							<div class="range-switch" id="server-mode" role="group" aria-label="Relay commands">
-								<button type="button" data-mode="backend" aria-pressed="true">From backend</button>
-								<button type="button" data-mode="mock" aria-pressed="false">Random (mock)</button>
+							<span class="sim-label">Sensor readings</span>
+							<div class="range-switch" id="esp-mode" role="group" aria-label="Sensor readings">
+								<button type="button" data-mode="drift" aria-pressed="true">Natural drift</button>
+								<button type="button" data-mode="manual" aria-pressed="false">Manual</button>
 							</div>
 						</div>
-
-						<div class="endpoints">
-							<div class="endpoint">
-								<div class="endpoint-head">
-									<span class="req-method req-post">POST</span><code>/data</code>
-									<span class="endpoint-count"><strong id="srv-posts">0</strong> sent</span>
-								</div>
-								<pre id="srv-post">—</pre>
-								<small class="endpoint-foot" id="srv-post-status"></small>
-							</div>
-							<div class="endpoint">
-								<div class="endpoint-head">
-									<span class="req-method req-get">GET</span><code>/status</code>
-									<span class="endpoint-count">every 3 s</span>
-								</div>
-								<pre id="srv-status">—</pre>
-							</div>
+						<label class="slider-row">
+							<span>Temperature</span>
+							<input type="range" id="sl-temp" min="15" max="45" step="0.1" />
+							<output id="sl-temp-value">–</output><span class="unit">°C</span>
+						</label>
+						<label class="slider-row">
+							<span>Humidity</span>
+							<input type="range" id="sl-humidity" min="0" max="100" step="1" />
+							<output id="sl-humidity-value">–</output><span class="unit">%</span>
+						</label>
+						<label class="slider-row">
+							<span>Pressure</span>
+							<input type="range" id="sl-pressure" min="980" max="1040" step="0.1" />
+							<output id="sl-pressure-value">–</output><span class="unit">hPa</span>
+						</label>
+						<div class="sim-row">
+							<span class="sim-label">BME280 connected</span>
+							<button type="button" class="switch" id="bme-toggle" role="switch" aria-checked="true"
+								aria-label="BME280 connected"><span class="switch-thumb"></span></button>
 						</div>
+						<div class="sim-row">
+							<span class="sim-label">USB serial connected</span>
+							<button type="button" class="switch" id="usb-toggle" role="switch" aria-checked="true"
+								aria-label="USB serial connected"><span class="switch-thumb"></span></button>
+						</div>
+					</div>
 
-						<p class="sim-line-label">Last command written to serial</p>
-						<code class="sim-line" id="srv-command">—</code>
+					<p class="sim-line-label">Uptime <strong id="esp-uptime">–</strong> · last line sent on serial</p>
+					<code class="sim-line" id="esp-line"></code>
+				</article>
 
-						<p class="sim-line-label">Recent requests</p>
-						<ul class="req-list" id="srv-requests"></ul>
-					</article>
-				</section>
-
-				<section class="card panel sim-backend" aria-labelledby="backend-title">
+				<article class="card panel">
 					<div class="sim-card-head">
 						<div>
-							<h2 class="panel-title" id="backend-title">Backend</h2>
-							<p class="chart-sub">Backend/app.py, simulated in this tab · same endpoints and rules, never the real API</p>
+							<h2 class="panel-title">ESP server</h2>
+							<p class="chart-sub">server.py · bridges the ESP32's serial port and the backend</p>
 						</div>
-						<span class="sim-chip is-bad" id="backend-chip">connected: false</span>
 					</div>
-					<div class="backend-grid">
-						<div class="backend-col">
-							<h3 class="sim-subtitle">Settings</h3>
-							<div class="sim-row">
-								<span class="sim-label">REQUIRE_DEVICE_KEY</span>
-								<button type="button" class="switch" id="devicekey-toggle" role="switch" aria-checked="false" aria-label="REQUIRE_DEVICE_KEY"><span class="switch-thumb"></span></button>
+
+					<div class="sim-row">
+						<span class="sim-label">Relay commands</span>
+						<div class="range-switch" id="server-mode" role="group" aria-label="Relay commands">
+							<button type="button" data-mode="backend" aria-pressed="true">From backend</button>
+							<button type="button" data-mode="mock" aria-pressed="false">Random (mock)</button>
+						</div>
+					</div>
+
+					<div class="endpoints">
+						<div class="endpoint">
+							<div class="endpoint-head">
+								<span class="req-method req-post">POST</span><code>/data</code>
+								<span class="endpoint-count"><strong id="srv-posts">0</strong> sent</span>
 							</div>
-							<p class="sim-note">Like Weisen's script, the simulated ESP server sends no key, so turning this on makes POST /data fail with 401.</p>
+							<pre id="srv-post">—</pre>
+							<small class="endpoint-foot" id="srv-post-status"></small>
 						</div>
-						<div class="backend-col">
-							<h3 class="sim-subtitle">Latest reading <small>GET /api/sensor</small></h3>
-							<pre class="backend-pre" id="be-sensor">—</pre>
-							<h3 class="sim-subtitle">Relays <small>GET /api/relay</small></h3>
-							<pre class="backend-pre" id="be-relay">—</pre>
-							<p class="sim-note">"connected" turns false 10 s after the last reading. Watering is capped at 600 s and the valve turns itself off when time is up.</p>
-						</div>
-						<div class="backend-col">
-							<h3 class="sim-subtitle">Requests</h3>
-							<ul class="req-list" id="be-requests"></ul>
+						<div class="endpoint">
+							<div class="endpoint-head">
+								<span class="req-method req-get">GET</span><code>/status</code>
+								<span class="endpoint-count">every 3 s</span>
+							</div>
+							<pre id="srv-status">—</pre>
 						</div>
 					</div>
-				</section>
 
-				<section class="card panel serial-card" aria-labelledby="serial-title">
-					<div class="sim-card-head">
-						<div>
-							<h2 class="panel-title" id="serial-title">Serial monitor</h2>
-							<p class="chart-sub">ESP32 ⇄ ESP server at 115200 baud</p>
-						</div>
-						<div class="log-actions">
-							<button type="button" class="sim-btn" id="log-pause">Pause log</button>
-							<button type="button" class="sim-btn" id="log-clear">Clear</button>
-						</div>
+					<p class="sim-line-label">Last command written to serial</p>
+					<code class="sim-line" id="srv-command">—</code>
+
+					<p class="sim-line-label">Recent requests</p>
+					<ul class="req-list" id="srv-requests"></ul>
+				</article>
+			</section>
+
+			<section class="card panel sim-backend" aria-labelledby="backend-title">
+				<div class="sim-card-head">
+					<div>
+						<h2 class="panel-title" id="backend-title">Backend</h2>
+						<p class="chart-sub">Backend/app.py, simulated in this tab · same endpoints and rules, never the
+							real API</p>
 					</div>
-					<div class="serial-log" id="serial-log" role="log" aria-live="off" tabindex="0"></div>
-				</section>
-			</main>
-		</div>
+					<span class="sim-chip is-bad" id="backend-chip">connected: false</span>
+				</div>
+				<div class="backend-grid">
+					<div class="backend-col">
+						<h3 class="sim-subtitle">Settings</h3>
+						<div class="sim-row">
+							<span class="sim-label">REQUIRE_DEVICE_KEY</span>
+							<button type="button" class="switch" id="devicekey-toggle" role="switch"
+								aria-checked="false" aria-label="REQUIRE_DEVICE_KEY"><span
+									class="switch-thumb"></span></button>
+						</div>
+						<p class="sim-note">Like Weisen's script, the simulated ESP server sends no key, so turning this
+							on makes POST /data fail with 401.</p>
+					</div>
+					<div class="backend-col">
+						<h3 class="sim-subtitle">Latest reading <small>GET /api/sensor</small></h3>
+						<pre class="backend-pre" id="be-sensor">—</pre>
+						<h3 class="sim-subtitle">Relays <small>GET /api/relay</small></h3>
+						<pre class="backend-pre" id="be-relay">—</pre>
+						<p class="sim-note">"connected" turns false 10 s after the last reading. Watering is capped at
+							600 s and the valve turns itself off when time is up.</p>
+					</div>
+					<div class="backend-col">
+						<h3 class="sim-subtitle">Requests</h3>
+						<ul class="req-list" id="be-requests"></ul>
+					</div>
+				</div>
+			</section>
 
-		<script src="sim.js"></script>
-		<script src="config.js"></script>
-		<script src="history-api.js"></script>
-		<script src="ml-scenarios.js"></script>
-	</body>
+			<section class="card panel serial-card" aria-labelledby="serial-title">
+				<div class="sim-card-head">
+					<div>
+						<h2 class="panel-title" id="serial-title">Serial monitor</h2>
+						<p class="chart-sub">ESP32 ⇄ ESP server at 115200 baud</p>
+					</div>
+					<div class="log-actions">
+						<button type="button" class="sim-btn" id="log-pause">Pause log</button>
+						<button type="button" class="sim-btn" id="log-clear">Clear</button>
+					</div>
+				</div>
+				<div class="serial-log" id="serial-log" role="log" aria-live="off" tabindex="0"></div>
+			</section>
+		</main>
+	</div>
+
+	<script src="sim.js"></script>
+</body>
+
 </html>

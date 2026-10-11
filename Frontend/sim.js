@@ -490,6 +490,26 @@
 		$("source-note").textContent = note;
 	}
 
+	/* ================= Prediction scenario ================= */
+	const SCENARIO_KEY = "plantcheck:prediction-scenario";
+	const scenarioButtons = document.querySelectorAll("#pred-scenario button");
+	function renderScenario() {
+		let current = "stable";
+		try {
+			current = localStorage.getItem(SCENARIO_KEY) || "stable";
+		} catch { /* private mode: default */ }
+		scenarioButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.scenario === current)));
+	}
+	scenarioButtons.forEach((b) =>
+		b.addEventListener("click", () => {
+			try {
+				localStorage.setItem(SCENARIO_KEY, b.dataset.scenario);
+			} catch { /* private mode */ }
+			renderScenario();
+		}),
+	);
+	renderScenario();
+
 	/* ================= ESP32 panel ================= */
 	const sliders = {
 		temperature: $("sl-temp"),

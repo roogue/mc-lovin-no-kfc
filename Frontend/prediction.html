@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plant Check — Prediction</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="pages.css" />
+</head>
+
+<body>
+    <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Toggle sidebar" />
+
+    <div class="app">
+        <!-- ========== SIDEBAR ========== -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.html" class="logo">
+                    <svg class="logo-icon" viewBox="0 0 40 40" aria-hidden="true">
+                        <path d="M20 20 C 14 21, 6 18, 4 10 C 11 8, 18 12, 20 20 Z" fill="#4CD179" />
+                        <path d="M20 20 C 26 21, 34 18, 36 10 C 29 8, 22 12, 20 20 Z" fill="#7FDC9C" />
+                        <line x1="20" y1="19" x2="20" y2="26" stroke="#4CD179" stroke-width="2" />
+                        <rect x="10" y="25" width="20" height="4" rx="1" fill="#F48A5C" />
+                        <path d="M12 30 H28 L26 37 H14 Z" fill="#F9A47D" />
+                    </svg>
+                    <span class="logo-text">Plant<br />Check</span>
+                </a>
+
+                <label for="nav-toggle" class="toggle-btn" title="Collapse / expand sidebar">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M15 6l-6 6 6 6" />
+                    </svg>
+                </label>
+            </div>
+
+            <nav class="nav">
+                <a href="index.html" class="nav-item" title="Overview">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                    </svg>
+                    <span class="nav-label">Overview</span>
+                </a>
+                <a href="disease.html" class="nav-item" title="Disease">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 19c0-8 6-14 15-14 0 9-6 15-14 15" />
+                        <path d="M5 19l7-7" />
+                        <circle cx="14" cy="10" r="1" />
+                    </svg>
+                    <span class="nav-label">Disease</span>
+                </a>
+                <a href="monitoring-history.html" class="nav-item" data-short="History" title="Monitoring History">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 12a9 9 0 1 0 3-6.7" />
+                        <path d="M3 4v4h4" />
+                        <path d="M12 7v5l3 2" />
+                    </svg>
+                    <span class="nav-label">Monitoring History</span>
+                </a>
+                <a href="report.html" class="nav-item" title="Report">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+                        <path d="M14 3v6h6" />
+                        <path d="M8 13h8M8 17h5" />
+                    </svg>
+                    <span class="nav-label">Report</span>
+                </a>
+                <a href="prediction.html" class="nav-item active" title="Prediction">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 17l6-6 4 4 8-8" />
+                        <path d="M15 7h6v6" />
+                    </svg>
+                    <span class="nav-label">Prediction</span>
+                </a>
+                <a href="simulation.html" class="nav-item" title="Simulation">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="6" y="6" width="12" height="12" rx="2" />
+                        <path d="M10 10h4v4h-4z" />
+                        <path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" />
+                    </svg>
+                    <span class="nav-label">Simulation</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- ========== MAIN CONTENT ========== -->
+        <main class="main pred-page">
+            <div class="page-head">
+                <div>
+                    <h1>Prediction</h1>
+                    <p>Forecast the next hour from the last 6 hours of sensor readings.</p>
+                </div>
+            </div>
+
+            <section class="card panel" aria-labelledby="predict-title">
+                <h2 class="panel-title" id="predict-title">Run a prediction</h2>
+                <p class="chart-sub">
+                    Uses the latest temperature, humidity, pressure and precipitation readings to predict what happens
+                    next.
+                </p>
+                <div class="pred-run">
+                    <button type="button" class="scan-btn" id="predict-btn">Predict</button>
+                    <div class="pred-toggle">
+                        <div class="pred-toggle-text">
+                            <strong id="auto-action-label">Automatic Action</strong>
+                            <small id="auto-action-note">Off · you choose the actions</small>
+                        </div>
+                        <button type="button" class="switch auto-switch" id="auto-action" role="switch"
+                            aria-checked="false" aria-labelledby="auto-action-label">
+                            <span class="switch-thumb"></span>
+                        </button>
+                    </div>
+                </div>
+                <p class="scan-error" id="predict-error" role="alert" hidden></p>
+            </section>
+
+            <section class="tiles" aria-label="Predicted values" aria-live="polite">
+                <div class="tile">
+                    <span>Temperature</span><strong id="pred-temperature">–</strong><small id="pred-temperature-note">in
+                        about 1 hour</small>
+                </div>
+                <div class="tile">
+                    <span>Humidity</span><strong id="pred-humidity">–</strong><small id="pred-humidity-note">in about 1
+                        hour</small>
+                </div>
+                <div class="tile">
+                    <span>Precipitation</span><strong id="pred-precipitation">–</strong><small
+                        id="pred-precipitation-note">in about 1 hour</small>
+                </div>
+                <div class="tile">
+                    <span>Stress risk</span><strong id="pred-stress">–</strong><small id="pred-stress-note">next 3
+                        hours</small>
+                </div>
+            </section>
+
+            <section class="card panel" id="pred-chart-card" aria-labelledby="chart-title" hidden>
+                <div class="pred-chart-head">
+                    <div>
+                        <h2 class="panel-title" id="chart-title">Last 6 hours and forecast</h2>
+                        <p class="chart-sub">Solid: readings. Dashed: predicted value in 1 hour.</p>
+                    </div>
+                    <div class="range-switch" id="pred-metric" role="group" aria-label="Chart value">
+                        <button type="button" data-metric="temperature" aria-pressed="true">Temperature</button>
+                        <button type="button" data-metric="humidity" aria-pressed="false">Humidity</button>
+                    </div>
+                </div>
+                <div id="pred-chart"></div>
+            </section>
+
+            <section class="card panel" aria-labelledby="console-title">
+                <h2 class="panel-title" id="console-title">Console</h2>
+                <pre class="pred-console" id="pred-console" role="log"
+                    aria-live="polite">Waiting for a prediction…</pre>
+            </section>
+
+            <section class="card panel" aria-labelledby="actions-title">
+                <h2 class="panel-title" id="actions-title">Suggested actions</h2>
+                <p class="chart-sub" id="actions-empty">Run a prediction to see what to do next.</p>
+                <ol class="scan-steps" id="actions-list"></ol>
+                <div class="pred-devices" id="actions-devices" hidden>
+                    <h3 class="pred-devices-title" id="devices-title">Temperature is expected to rise</h3>
+                    <div class="pred-device">
+                        <div class="pred-toggle-text">
+                            <strong id="pred-fan-label">Fan</strong>
+                            <small id="pred-fan-status">Off</small>
+                        </div>
+                        <button type="button" class="switch" id="pred-fan" role="switch" aria-checked="false"
+                            aria-labelledby="pred-fan-label">
+                            <span class="switch-thumb"></span>
+                        </button>
+                    </div>
+                    <div class="pred-device">
+                        <div class="pred-toggle-text">
+                            <strong id="pred-water-label">Irrigation</strong>
+                            <small id="pred-water-status">Off</small>
+                        </div>
+                        <button type="button" class="switch" id="pred-water" role="switch" aria-checked="false"
+                            aria-labelledby="pred-water-label">
+                            <span class="switch-thumb"></span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="toast.js"></script>
+    <script src="api.js"></script>
+    <script src="sensors.js"></script>
+    <script src="prediction.js"></script>
+</body>
+
+</html>
