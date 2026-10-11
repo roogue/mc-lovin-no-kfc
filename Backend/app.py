@@ -34,7 +34,7 @@ MAX_IMAGE_MB = 10
 app.config["MAX_CONTENT_LENGTH"] = MAX_IMAGE_MB * 1024 * 1024
 
 # Precipitation comes from the Google Weather API (same key and location as the dashboard)
-GOOGLE_WEATHER_KEY = "PASTE_YOUR_GOOGLE_KEY_HERE"
+GOOGLE_WEATHER_KEY = "AIzaSyBYX2iAJKNsArrCuEwECOYsWEybPE6ZsnY"
 LATITUDE = 1.5584
 LONGITUDE = 110.3456
 WEATHER_URL = ("https://weather.googleapis.com/v1/currentConditions:lookup"

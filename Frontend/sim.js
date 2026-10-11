@@ -392,6 +392,8 @@
 
 	function renderPlant() {
 		stateButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.state === dashboardState)));
+		// The disease only matters while the plant is sick
+		$("sim-disease-field").hidden = dashboardState !== "sick";
 		$("sim-plant-note").textContent = !dashboardConnected()
 			? "Open the dashboard in another tab to see the change."
 			: dashboardState === "sick"

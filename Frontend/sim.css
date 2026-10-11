@@ -360,6 +360,10 @@ body.sim-idle .flow {
   color: var(--text-muted);
 }
 
+.sim-field[hidden] {
+  display: none;
+}
+
 .sim-field select,
 .sim-field input {
   padding: 8px 10px;

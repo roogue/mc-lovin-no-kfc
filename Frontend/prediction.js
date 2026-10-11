@@ -67,9 +67,15 @@
         log(`Loaded ${readings.length} readings covering ${formatMinutes(span)}.`, "log-ok");
         // No rain data yet (the weather feed hasn't filled it in): count it as no rain, like the training data's dry days
         const noRain = readings.filter((r) => r.precipitation == null).length;
+        const hasRain = noRain < readings.length;
         if (noRain) {
             readings.forEach((r) => r.precipitation == null && (r.precipitation = 0));
-            log(`${noRain} of them have no precipitation value; counting those as 0 mm.`, "log-dim");
+            log(
+                hasRain
+                    ? `${noRain} of them have no precipitation value; counting those as 0 mm.`
+                    : "None of them have a precipitation value (the backend's weather feed isn't saving any), so there's no rain prediction.",
+                "log-dim",
+            );
         }
         log(`Resampling to ${model.step_minutes}-minute steps and building lag features…`);
         const p = PlantForecast.predict(model, readings);
@@ -87,7 +93,7 @@
         const history = p.rows
             .map((r) => ({ ...r, minutes_ago: Math.round((lastT - r.t) / 60000) }))
             .filter((r) => r.minutes_ago <= CHART_MINUTES && [r.temperature, r.humidity].every(Number.isFinite));
-        return { name: "Database", history, prediction: p };
+        return { name: "Database", history, prediction: p, hasRain };
     }
 
     function formatMinutes(min) {
@@ -328,12 +334,15 @@
         const soon = "in about 1 hour · ";
         setTrend("pred-temperature-note", soon, p.temperature - now.temperature, "°C", 1);
         setTrend("pred-humidity-note", soon, p.humidity - now.humidity, "%", 0);
-        setTrend("pred-precipitation-note", soon, p.precipitation - now.precipitation, " mm", 1);
+        const hasRain = s.hasRain !== false;
+        if (hasRain) setTrend("pred-precipitation-note", soon, p.precipitation - now.precipitation, " mm", 1);
+        else $("pred-precipitation-note").textContent = "no rain data from the weather feed";
         drawChart(s);
 
         countUp($("pred-temperature"), p.temperature, (v) => `${v.toFixed(1)}°C`);
         countUp($("pred-humidity"), p.humidity, (v) => `${Math.round(v)}%`);
-        countUp($("pred-precipitation"), p.precipitation, (v) => `${v.toFixed(1)} mm`);
+        if (hasRain) countUp($("pred-precipitation"), p.precipitation, (v) => `${v.toFixed(1)} mm`);
+        else $("pred-precipitation").textContent = "—";
         tiles().forEach((t) => {
             t.classList.remove("is-revealed");
             void t.offsetWidth;
