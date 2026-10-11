@@ -246,6 +246,33 @@
 						<div class="effect-chips" id="effect-chips" aria-live="polite"></div>
 					</div>
 
+					<!-- Mobile only: mirrors the 4 stat cards so readings live on the plant itself (see style.css @media max-width:720px) -->
+					<div class="plant-readings glass" id="plant-readings" aria-label="Current readings">
+						<span class="reading" id="reading-temp">
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z" />
+							</svg>
+							<strong id="temp-chip-value">30°C</strong>
+						</span>
+						<span class="reading" id="reading-humidity">
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z" />
+							</svg>
+							<strong id="humidity-chip-value">40%</strong>
+						</span>
+						<span class="reading" id="reading-precip">
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path d="M7 15a4 4 0 0 1-.5-8A5.5 5.5 0 0 1 17 8a3.5 3.5 0 0 1 0 7z" />
+								<path d="M8 18l-1 2M12 18l-1 2M16 18l-1 2" />
+							</svg>
+							<strong id="precip-chip-value">12%</strong>
+						</span>
+						<span class="reading" id="reading-weather">
+							<span class="reading-weather-icon" id="weather-chip-icon" aria-hidden="true"></span>
+							<strong id="weather-chip-text">Partly Cloudy</strong>
+						</span>
+					</div>
+
 					<div class="plant-bottom">
 						<div class="plant-actions">
 							<button type="button" class="cam-btn glass" id="cctv-open" aria-haspopup="dialog"

@@ -31,6 +31,9 @@
     tempSub: document.getElementById('temp-sub'),
     humValue: document.getElementById('humidity-value'),
     humSub: document.getElementById('humidity-sub'),
+    // Mobile: mirrors onto the plant card's reading chips (see .plant-readings)
+    tempChip: document.getElementById('temp-chip-value'),
+    humChip: document.getElementById('humidity-chip-value'),
   };
 
   const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
@@ -66,6 +69,8 @@
       els.humValue.textContent = `${Math.round(h)}%`;
       els.humSub.textContent = `Dew point ${dewPoint(t, h).toFixed(1)}°C`;
     }
+    if (els.tempChip) els.tempChip.textContent = `${Math.round(t)}°C`;
+    if (els.humChip) els.humChip.textContent = `${Math.round(h)}%`;
 
     const detail = { temperature: t, humidity: h, demo };
     if (Number.isFinite(Number(pressure))) detail.pressure = Number(pressure);

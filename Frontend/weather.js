@@ -23,6 +23,10 @@
     sub: document.getElementById('weather-sub'),
     precipValue: document.getElementById('precip-value'),
     precipSub: document.getElementById('precip-sub'),
+    // Mobile: mirrors onto the plant card's reading chips (see .plant-readings)
+    precipChip: document.getElementById('precip-chip-value'),
+    weatherChipText: document.getElementById('weather-chip-text'),
+    weatherChipIcon: document.getElementById('weather-chip-icon'),
   };
   if (!els.text) return;
 
@@ -77,6 +81,7 @@
       sub += ` · ${amount.toFixed(inches ? 2 : 1)} ${inches ? 'in' : 'mm'} last hour`;
     }
     els.precipSub.textContent = sub;
+    if (els.precipChip) els.precipChip.textContent = `${Math.round(percent)}%`;
   }
 
   /* ---------------- Rendering ---------------- */
@@ -89,8 +94,10 @@
     // If the API's icon fails to load, fall back to the matching one from our map
     img.onerror = () => { if (img.src !== iconFor(kind, night)) img.src = iconFor(kind, night); };
     els.icon.replaceChildren(img);
+    if (els.weatherChipIcon) els.weatherChipIcon.replaceChildren(img.cloneNode());
 
     els.text.textContent = text;
+    if (els.weatherChipText) els.weatherChipText.textContent = text;
     els.sub.textContent = Number.isFinite(windKmh)
       ? `Wind ${Math.round(IMPERIAL ? windKmh / 1.609 : windKmh)} ${IMPERIAL ? 'mph' : 'km/h'}`
       : '';

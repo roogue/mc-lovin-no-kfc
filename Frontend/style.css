@@ -1106,6 +1106,44 @@ svg {
   display: none;
 }
 
+/* Mobile-only strip mirroring the 4 stat cards onto the plant card itself; see @media (max-width: 720px) */
+.plant-readings {
+  display: none;
+}
+
+.reading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.reading svg,
+.reading-weather-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.reading-weather-icon img {
+  display: block;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.reading strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
 .effect-chip {
   padding: 4px 10px;
   border-radius: 999px;
@@ -2209,33 +2247,58 @@ svg {
     align-items: stretch;
   }
 
-  /* ----- Stat cards: compact 2 × 2 ----- */
+  /* ----- Stat cards: now folded into the plant card below, see .plant-readings ----- */
   .cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    margin-bottom: 16px;
-  }
-
-  .stat-card {
-    min-height: 118px;
-    padding: 12px 14px;
-  }
-
-  .stat-value {
-    font-size: 34px;
-  }
-
-  .stat-sub {
-    font-size: 11px;
+    display: none;
   }
 
   .weather-body {
     gap: 6px;
   }
 
+  /* ----- Readings mirrored onto the plant card ----- */
+  .plant-readings {
+    position: absolute;
+    top: 56px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 8px 12px;
+    border-radius: 14px;
+  }
+
+  .reading {
+    flex: 1 1 calc(50% - 6px);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  #reading-weather {
+    flex-basis: 100%;
+  }
+
+  /* ----- Chart: fewer gridlines, bigger labels, thicker line ----- */
+  .chart-card {
+    padding: 14px 16px;
+  }
+
+  .chart-card .grid line:nth-child(2n) {
+    display: none;
+  }
+
+  .chart-card g.axis-label[text-anchor="end"] text:nth-child(2n) {
+    display: none;
+  }
+
   .chart .axis-label,
   .chart .value-label {
-    font-size: 20px;
+    font-size: 22px;
+  }
+
+  .chart polyline {
+    stroke-width: 4.5;
   }
 
   /* ----- Latest updates: one small card per day instead of a wide table ----- */
@@ -2266,6 +2329,11 @@ svg {
 
   .daily-table tbody tr:last-child {
     border-bottom: 0;
+  }
+
+  /* Show only the 3 most recent days (rows are newest-first); full history via "View reports" */
+  .daily-table tbody tr:nth-child(n + 4) {
+    display: none;
   }
 
   .daily-table tbody tr:hover {
