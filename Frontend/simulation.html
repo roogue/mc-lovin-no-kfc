@@ -97,8 +97,9 @@
 				<div>
 					<h1>Simulation</h1>
 					<p>The whole hardware path in software: ESP32, ESP server and backend, with the same messages and
-						endpoints as the real ones. The hardware simulation never talks to the real API; only the ML
-						test data below writes to the real database.</p>
+						endpoints as the real ones. The simulated hardware runs while the dashboard is on real-time
+						data and the ESP32 is connected, and stays idle otherwise. The hardware simulation never talks
+						to the real API; only the ML test data below writes to the real database.</p>
 				</div>
 				<div class="sim-head-actions">
 					<span class="dash-chip" id="dash-chip"><span class="dot"></span><span>Dashboard not
@@ -109,8 +110,8 @@
 			</div>
 
 			<div class="sim-idle-note" id="sim-idle-note" hidden>
-				<p><strong>Hardware simulation off.</strong> <span id="sim-idle-text">The dashboard shows real-time data
-						from the ESP32, so the simulated hardware below isn't used and its readings stay empty.</span>
+				<p><strong>Hardware simulation off.</strong> <span id="sim-idle-text">Waiting for the dashboard: open it
+						in another tab. The simulated hardware below runs with it while the ESP32 is connected.</span>
 				</p>
 			</div>
 
@@ -166,7 +167,7 @@
 				<article class="card panel sim-flow-card">
 					<h2 class="panel-title">Data flow</h2>
 					<p class="chart-sub">Each dot is a message on its way</p>
-					<div class="flow" id="flow">
+					<div class="flow is-offline" id="flow">
 						<div class="flow-node">
 							<span class="flow-icon" aria-hidden="true">
 								<svg viewBox="0 0 24 24">

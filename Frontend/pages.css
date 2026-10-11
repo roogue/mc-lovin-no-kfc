@@ -1311,21 +1311,6 @@ main [data-mode][hidden] {
   }
 }
 
-.tile[data-risk="high"] strong,
-.tile[data-risk="high"] small {
-  color: #B4432B;
-}
-
-.tile[data-risk="mid"] strong,
-.tile[data-risk="mid"] small {
-  color: #A86A00;
-}
-
-.tile[data-risk="low"] strong,
-.tile[data-risk="low"] small {
-  color: #23854A;
-}
-
 @media (prefers-reduced-motion: reduce) {
 
   .pred-line,

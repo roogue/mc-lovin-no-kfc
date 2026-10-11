@@ -99,7 +99,7 @@
   display: none;
 }
 
-/* ----- "Simulation off" (data source is Sample or Live API) ----- */
+/* ----- "Simulation off" (the real-time ESP32 isn't connected, or the dashboard is on sample data) ----- */
 .sim-idle-note {
   display: flex;
   flex-wrap: wrap;

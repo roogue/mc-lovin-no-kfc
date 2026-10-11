@@ -1,13 +1,18 @@
-// Prediction page. Live mode calls GET /api/predict on the Plant Check API (Backend/app.py), which runs
-// Prediction-Training/predict.py on the saved sensor_readings. Sample mode (no API configured, or the
-// simulation page's remote set to "sample") reads data/prediction.json instead: a 6-hour history and the
-// model's prediction for each scenario, picked on the simulation page.
+// Prediction page. On real-time data it reads the last hours of readings from the database (GET /api/readings)
+// and runs the trained model in the browser (forecast.js, data/model.json). On sample data it reads
+// data/prediction.json instead: a 6-hour history and the model's prediction for each scenario, picked on the
+// simulation page.
 
 (function () {
     "use strict";
 
     const $ = (id) => document.getElementById(id);
     const SCENARIO_KEY = "plantcheck:prediction-scenario";
+    const FETCH_HOURS = 7; // the model needs about 6 hours; a little extra covers the edges
+    const CHART_MINUTES = 390;
+    const PAGE_SIZE = 1000; // the most /api/readings returns at once
+
+    const isLive = () => !!(window.PlantHistory && PlantHistory.isLive());
 
     function scenarioId() {
         try {
@@ -17,28 +22,78 @@
         }
     }
 
+    // Every reading of the last `hours` from the database, oldest first: [{ t (ms), temperature, humidity, pressure, precipitation }]
+    async function fetchReadings(hours) {
+        const first = await PlantHistory.readings(hours, PAGE_SIZE, 0);
+        const total = Number(first.total) || 0;
+        const offsets = [];
+        for (let o = PAGE_SIZE; o < total; o += PAGE_SIZE) offsets.push(o);
+        const rest = await Promise.all(offsets.map((o) => PlantHistory.readings(hours, PAGE_SIZE, o)));
+        const num = PlantHistory.num;
+        return [first, ...rest]
+            .flatMap((page) => page.readings || [])
+            .map((r) => {
+                const at = PlantHistory.parseUtc(r.recorded_at);
+                return {
+                    t: at ? at.getTime() : NaN,
+                    temperature: num(r.temperature),
+                    humidity: num(r.humidity),
+                    pressure: num(r.pressure),
+                    precipitation: num(r.precipitation),
+                };
+            })
+            .filter((r) => Number.isFinite(r.t))
+            .sort((a, b) => a.t - b.t);
+    }
+
+    // Returns { name, history: [{ minutes_ago, temperature, humidity, pressure, precipitation }], prediction }
     async function fetchSample() {
+        log("Loading data/prediction.json…");
         const res = await fetch("data/prediction.json", { cache: "no-store" });
         if (!res.ok) throw new Error(`Couldn't load prediction.json (HTTP ${res.status}).`);
         const data = await res.json();
         const s = data.scenarios && data.scenarios[scenarioId()];
         if (!s) throw new Error("The selected scenario isn't in prediction.json.");
+        log(`Loaded ${s.history.length} readings covering ${formatMinutes(s.history[0].minutes_ago)}.`, "log-ok");
         return s;
     }
 
+    // Same shape as fetchSample(), from the database and the model
     async function fetchLive() {
-        const data = await PlantHistory.predict();
-        if (!data.ready) {
-            const have = Math.round((data.have_minutes || 0) / 60 * 10) / 10;
-            const need = Math.round((data.needed_minutes || 0) / 60 * 10) / 10;
-            throw new Error(`Not enough sensor history yet: ${have} h saved, ${need} h needed.`);
+        log(`Loading the last ${FETCH_HOURS} h of readings from the database (${PlantHistory.host})…`);
+        const [model, readings] = await Promise.all([PlantForecast.loadModel(), fetchReadings(FETCH_HOURS)]);
+        if (!readings.length) throw new Error(`The database has no readings from the last ${FETCH_HOURS} hours. Is the ESP32 sending?`);
+        const span = Math.round((readings[readings.length - 1].t - readings[0].t) / 60000);
+        log(`Loaded ${readings.length} readings covering ${formatMinutes(span)}.`, "log-ok");
+        // No rain data yet (the weather feed hasn't filled it in): count it as no rain, like the training data's dry days
+        const noRain = readings.filter((r) => r.precipitation == null).length;
+        if (noRain) {
+            readings.forEach((r) => r.precipitation == null && (r.precipitation = 0));
+            log(`${noRain} of them have no precipitation value; counting those as 0 mm.`, "log-dim");
         }
-        return { name: "Live", description: "From the last readings in the database.", history: data.history, prediction: data.prediction };
+        log(`Resampling to ${model.step_minutes}-minute steps and building lag features…`);
+        const p = PlantForecast.predict(model, readings);
+        if (!p.ready) {
+            throw new Error(`The readings have no ${p.missing.join(" or ")} values, so the model can't run. Check the ESP32's sensors.`);
+        }
+        if (p.partial) {
+            log(
+                `Only ${formatMinutes(p.have_minutes)} of readings (the model is built for ${formatMinutes(p.needed_minutes)}): ` +
+                    "gaps are filled and older lags use the oldest reading, so this prediction is rougher until more data comes in.",
+                "log-dim",
+            );
+        }
+        const lastT = p.rows[p.rows.length - 1].t;
+        const history = p.rows
+            .map((r) => ({ ...r, minutes_ago: Math.round((lastT - r.t) / 60000) }))
+            .filter((r) => r.minutes_ago <= CHART_MINUTES && [r.temperature, r.humidity].every(Number.isFinite));
+        return { name: "Database", history, prediction: p };
     }
 
-    // Returns { name, description, history, prediction: { temperature, humidity, precipitation, stress_probability } }
-    async function fetchPrediction() {
-        return window.PlantHistory && PlantHistory.isLive() ? fetchLive() : fetchSample();
+    function formatMinutes(min) {
+        const h = Math.floor(min / 60);
+        const m = Math.round(min % 60);
+        return h ? `${h} h${m ? ` ${m} min` : ""}` : `${m} min`;
     }
 
     function showError(msg) {
@@ -129,7 +184,7 @@
             t.textContent = v.toFixed(m.digits);
             svg.append(t);
         }
-        [[-360, "-6 h"], [-180, "-3 h"], [0, "now"], [horizon, "+1 h"]].forEach(([x, label]) => {
+        [[-360, "-6 h"], [-180, "-3 h"], [0, "now"], [horizon, "+1 h"]].filter(([x]) => x >= x0).forEach(([x, label]) => {
             const t = svgEl("text", { x: px(x), y: H - 8, class: "pred-axis", "text-anchor": "middle" });
             t.textContent = label;
             svg.append(t);
@@ -158,10 +213,6 @@
         arrow.className = delta > 0 ? "pred-up" : "pred-down";
         arrow.textContent = `${delta > 0 ? "↑" : "↓"} ${abs.toFixed(digits)}${unit}`;
         note.replaceChildren(`${prefix}`, arrow, " from now");
-    }
-
-    function riskLabel(p) {
-        return p >= 0.66 ? "High risk" : p >= 0.33 ? "Moderate risk" : "Low risk";
     }
 
     /* ---------------- Fan and irrigation ---------------- */
@@ -278,14 +329,11 @@
         setTrend("pred-temperature-note", soon, p.temperature - now.temperature, "°C", 1);
         setTrend("pred-humidity-note", soon, p.humidity - now.humidity, "%", 0);
         setTrend("pred-precipitation-note", soon, p.precipitation - now.precipitation, " mm", 1);
-        $("pred-stress-note").textContent = `next 3 hours · ${riskLabel(p.stress_probability)}`;
-        $("pred-stress").closest(".tile").dataset.risk = p.stress_probability >= 0.66 ? "high" : p.stress_probability >= 0.33 ? "mid" : "low";
         drawChart(s);
 
         countUp($("pred-temperature"), p.temperature, (v) => `${v.toFixed(1)}°C`);
         countUp($("pred-humidity"), p.humidity, (v) => `${Math.round(v)}%`);
         countUp($("pred-precipitation"), p.precipitation, (v) => `${v.toFixed(1)} mm`);
-        countUp($("pred-stress"), p.stress_probability * 100, (v) => `${Math.round(v)}%`);
         tiles().forEach((t) => {
             t.classList.remove("is-revealed");
             void t.offsetWidth;
@@ -319,18 +367,20 @@
         $("pred-console").replaceChildren();
         tiles().forEach((t) => t.classList.add("is-loading"));
         const pause = (ms) => wait(reduceMotion ? 0 : ms);
-        const live = !!(window.PlantHistory && PlantHistory.isLive());
         try {
-            log(live ? "Source: live database" : `Scenario: ${scenarioId()}`, "log-dim");
-            log(live ? "Loading readings from the API…" : "Loading data/prediction.json…");
+            const live = isLive();
+            log(live ? "Source: real-time data (database)" : `Source: sample data · scenario ${scenarioId()}`, "log-dim");
             await pause(500);
-            const s = await fetchPrediction();
+            const s = live ? await fetchLive() : await fetchSample();
             const h = s.history;
             const last = h[h.length - 1];
-            log(`Loaded ${h.length} readings (last ${Math.round(h[0].minutes_ago / 60 * 10) / 10} h). Latest: ${last.temperature}°C, ${last.humidity}%, ${last.pressure} hPa, ${last.precipitation} mm`, "log-ok");
+            const f = (v, d) => (Number.isFinite(v) ? v.toFixed(d) : "—");
+            log(`Latest: ${f(last.temperature, 2)}°C, ${f(last.humidity, 2)}%, ${f(last.pressure, 2)} hPa, ${f(last.precipitation, 1)} mm`, "log-ok");
             await pause(600);
-            log("Resampling to 10-minute steps and building lag features…");
-            await pause(700);
+            if (!live) {
+                log("Resampling to 10-minute steps and building lag features…");
+                await pause(700);
+            }
             log("Running the temperature, humidity, precipitation and stress models…");
             await pause(900);
             const p = s.prediction;

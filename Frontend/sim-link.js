@@ -10,7 +10,8 @@
 	const channel = new BroadcastChannel("plantcheck-sim");
 	const send = (msg) => channel.postMessage({ ...msg, from: "dashboard" });
 
-	const sourceInfo = () => (window.PlantSensors ? { mode: PlantSensors.mode, state: PlantSensors.state } : null);
+	const sourceInfo = () =>
+		window.PlantSensors ? { mode: PlantSensors.mode, state: PlantSensors.state, reason: PlantSensors.reason } : null;
 	const plantState = () => (document.querySelector(".plant-card") || {}).dataset?.state || "healthy";
 
 	channel.onmessage = ({ data }) => {
